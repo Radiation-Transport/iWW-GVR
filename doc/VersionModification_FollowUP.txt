@@ -1,0 +1,9 @@
+Version     Date            Comment/Changes
+--------------------------------------------------------------------------------
+1.0.0       2019-09-16      * Intial Version
+--------------------------------------------------------------------------------
+1.0.1       2019-09-16      * Bug in analyse corrected
+                            * zoneID matrix dimension corrected
+                            * menu display improved
+                            * energy range include in plot option selection
+--------------------------------------------------------------------------------

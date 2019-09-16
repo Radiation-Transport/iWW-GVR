@@ -550,7 +550,7 @@ def write(wwdata,wwfiles,index):
     ans,fname = answer_loop('write')
     
     if ans == 'end':
-        sys.exit('\n Thanks for using this utility tools! See you soon!')
+        sys.exit('\n Thanks for using iWW-GVR! See you soon!')
     else:
         outputFile = wwfiles[index]+'_2write'
         ww=wwdata[index]
@@ -757,12 +757,12 @@ def analyse(self, zoneID, factor):
         ww_neg_pos    = []
         
         ww_noZERO     = []
-        ww_noZERO_pos = []
+        posBins       = []
+
         
         for e in range (0,len(self.eb[p])):    
         
-            ww_noZERO_pos = np.where(self.wwme[p][e] > 0)
-            ww_noZERO.append(len(ww_noZERO_pos[0])/(self.bins*factor))
+            posBins.append(len(np.argwhere(self.wwme[p][e]*zoneID>0))/(len(self.wwme[p][e])*len(np.argwhere(zoneID>0))))
                 
             ww_neg_pos = np.where(self.wwme[p][e] < 0)
                 
@@ -811,7 +811,7 @@ def analyse(self, zoneID, factor):
         # RATIO_MAX=[e.max() for e in self.ratio[p]]
         #RATIO_MAX=max(RATIO_MAX)
         #print(RATIO_MAX)
-        RATIO_EVA.append([[e.max() for e in self.ratio[p]],sum(ww_noZERO)/len(self.eb[p]),ww_neg])
+        RATIO_EVA.append([[e.max() for e in self.ratio[p]],sum(posBins)/len(self.eb[p]),ww_neg])
             
         ww_neg=[]
         ww_neg_pos=[]    
@@ -893,10 +893,10 @@ def zoneDEF(self,degree):
         
         # PR - Evaluation of the WW
         zoneID=[]
-        zoneID=np.zeros((int(len(self.Y)),int(len(self.X))))
+        zoneID=np.zeros((int(len(self.Y)-1),int(len(self.X)-1))) 
 
-        for j in range (0, int(len(self.Y))):
-            for i in range (0, int(len(self.X))):
+        for j in range (0, int(len(self.Y)-1)):
+            for i in range (0, int(len(self.X)-1)):
                 if np.absolute(np.arctan(self.Y[j]/self.X[i]))<(degree/2/180*math.pi):
                     zoneID[j,i]=1
 
@@ -927,11 +927,11 @@ def plot(self):
     while True:
         
         if    PLANE == 'X':
-            INFO_QUOTE  = '[X-->' + str(self.X[0]) +', '+ str(self.X[-1]) +' cm]'
+            INFO_QUOTE  = '[X-->' + str(self.X[0]) +', '+ str(self.X[-1]) +'] cm'
         elif PLANE == 'Y':
-            INFO_QUOTE  = '[Y-->' + str(self.Y[0]) +', '+ str(self.Y[-1]) +' cm]'
+            INFO_QUOTE  = '[Y-->' + str(self.Y[0]) +', '+ str(self.Y[-1]) +'] cm'
         elif PLANE == 'Z':    
-            INFO_QUOTE  = '[Z-->' + str(self.Z[0]) +', '+ str(self.Z[-1]) +' cm]'    
+            INFO_QUOTE  = '[Z-->' + str(self.Z[0]) +', '+ str(self.Z[-1]) +'] cm'    
         
         while True:
             PLANE_QUOTE = input(' Select the quote ' + INFO_QUOTE + ':')
@@ -962,9 +962,9 @@ def plot(self):
 
         if len(self.eb[PAR_Select]) > 1:
             while True:
-                ENERGY = input(" Select the energy [MeV]:")
+                ENERGY = input(" Select the energy [0, " + str(self.eb[PAR_Select][-1])+ "]MeV :")
                 
-                if self.eb[PAR_Select][0] <= float(ENERGY) <= self.eb[PAR_Select][-1]:
+                if 0 < float(ENERGY) <= self.eb[PAR_Select][-1]:
                     break
                 else:
                     print(' Value outside the range')
@@ -983,9 +983,9 @@ def plot(self):
     
         if len(self.eb[PAR_Select]) > 1:
             while True:
-                ENERGY = input(" Select the energy [MeV]:")
+                ENERGY = input(" Select the energy [0, " + str(self.eb[PAR_Select][-1])+ "]MeV :")
                 
-                if self.eb[PAR_Select][0] <= float(ENERGY) <= self.eb[PAR_Select][-1]:
+                if 0 < float(ENERGY) <= self.eb[PAR_Select][-1]:
                     break
                 else:
                     print(' Value outside the range')
@@ -1063,26 +1063,31 @@ def plot_ww(self, PAR_Select, PLANE, PLANE_QUOTE, ENERGY):
                 
                 # Using numpy features to find min and max
                 f= np.array(vals.tolist())
-                vmin = np.min(f[np.nonzero(f)])
-                vmax = np.max(f[np.nonzero(f)])
-                nColors = len(str(int(vmax/vmin)))*2
-                if vmin > 0 :
-                    cax=mpl.pyplot.imshow(vals, cmap = plt.get_cmap('jet', nColors), norm=colors.LogNorm(vmin, vmax), extent = extent)
-                else:
-                    cax=mpl.pyplot.imshow(vals, cmap = plt.get_cmap('jet', nColors), vmin = vmin, vmax = vmax, extent = extent)    
-                              
+                vmin = 0
                 
+                try:
+                    vmin = np.min(f[np.nonzero(f)])
+                except: 
+                    print(' Plot is not exported as only zero are contained in the matrix.')
                 
-                cbar=fig.colorbar(cax);
+                if vmin > 0:
+                    vmax = np.max(f[np.nonzero(f)])
+                    nColors = len(str(int(vmax/vmin)))*2
+                    if vmin > 0 :
+                        cax=mpl.pyplot.imshow(vals, cmap = plt.get_cmap('jet', nColors), norm=colors.LogNorm(vmin, vmax), extent = extent)
+                    else:
+                        cax=mpl.pyplot.imshow(vals, cmap = plt.get_cmap('jet', nColors), vmin = vmin, vmax = vmax, extent = extent)    
 
-                plt.title(self.name+'@'+PLANE+'='+str(PLANE_QUOTE)+'cm')
-                
-                if PAR_Select == 0 and self.d['B2_par']==True:
-                    fig.savefig(self.name+str(PAR_Select+1)+'_'+PLANE+'='+str(PLANE_QUOTE)+'cm'+'_'+'E'+'='+PE_STR+'MeV'+'_ParNo.'+'.jpg')
-                else:
-                    fig.savefig(self.name+str(PAR_Select)+'_'+PLANE+'='+str(PLANE_QUOTE)+'cm'+'_'+'E'+'='+PE_STR+'MeV'+'.jpg')  
-                # problem here -->mpl.pyplot.show(block = False) 
-                print (' Plot...Done!\n')
+                    cbar=fig.colorbar(cax);
+
+                    plt.title(self.name+'@'+PLANE+'='+str(PLANE_QUOTE)+'cm')
+                    
+                    if PAR_Select == 0 and self.d['B2_par']==True:
+                        fig.savefig(self.name+str(PAR_Select+1)+'_'+PLANE+'='+str(PLANE_QUOTE)+'cm'+'_'+'E'+'='+PE_STR+'MeV'+'_ParNo.'+'.jpg')
+                    else:
+                        fig.savefig(self.name+str(PAR_Select)+'_'+PLANE+'='+str(PLANE_QUOTE)+'cm'+'_'+'E'+'='+PE_STR+'MeV'+'.jpg')  
+                    # problem here -->mpl.pyplot.show(block = False) 
+                    print (' Plot...Done!\n')
 
 # Function to create a ww starting from the datafile imported and using the Global Variance Reduction    
 def gvr_soft(gvrname):
@@ -1233,8 +1238,8 @@ def operate():
      
     ans,fname = answer_loop('operate')
     
-    if ans == 'end':
-        sys.exit('\n Thanks for using this utility tools! See you soon!')        
+    if len(wwfiles) == 1:
+        index  = 0
     else:
         index  = selectfile(wwfiles)
        
@@ -1348,6 +1353,8 @@ def answer_loop(menu):
         if menu == 'operate':
             if ans0 not in okeys:
                 print(' bad operation keyword')
+            elif ans0 =='end':
+                sys.exit('\n Thanks for using iWW-GVR! See you soon!')      
             else:
                 ans1 = input(' Name of the result file:')
                 break
@@ -1613,7 +1620,7 @@ def main():
               wwdata.append(ww_out)
         
         elif ans == 'end' :
-            sys.exit('\n Thanks for using this utility tools! See you soon!')
+            sys.exit('\n Thanks for using iWW-GVR! See you soon!')
         else:
             break
         
