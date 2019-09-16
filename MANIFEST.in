@@ -1,0 +1,3 @@
+# recursive-include module *.pyd
+recursive-include doc *
+# recursive-include testing *

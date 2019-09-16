@@ -1,0 +1,13 @@
+Metadata-Version: 1.1
+Name: iww-gvr
+Version: 1.0.0
+Summary: Weight window Manipulator & Global Variance Reduction Tool
+Home-page: UNKNOWN
+Author: Marco Fabbri, Alvaro Cubi
+Author-email: marco.fabbri@f4e.europa.eu
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent

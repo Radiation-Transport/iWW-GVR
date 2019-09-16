@@ -1,0 +1,15 @@
+MANIFEST.in
+README.md
+setup.py
+doc/WW_GVR_MEMORANDUM_v20190912-DRAFT.pdf
+iww_gvr/__init__.py
+iww_gvr/__main__.py
+iww_gvr/__version__.py
+iww_gvr/main.py
+iww_gvr/meshtal_module.py
+iww_gvr.egg-info/PKG-INFO
+iww_gvr.egg-info/SOURCES.txt
+iww_gvr.egg-info/dependency_links.txt
+iww_gvr.egg-info/entry_points.txt
+iww_gvr.egg-info/requires.txt
+iww_gvr.egg-info/top_level.txt
