@@ -14,7 +14,7 @@ BUILDING A NEW VERSION:
 5. Modify the version number in the variable 'version' and save.
 6. Go to the same folder where setup.py is located and from command line execute:
 	
-	> python setup.py sdist bdist_wheel
+	> python setup.py sdist bdist_wheel clean --all install clean --all
 	
 7. A new version ready for installation has been built and stored in the "dist" folder.
 	

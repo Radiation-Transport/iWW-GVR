@@ -16,7 +16,3 @@
 # Uninstall previous version
 pip uninstall iww-gvr;
 
-# prepare new distribution files. These are not needed 
-# for local installation, but might be useful for users
-python setup.py clean
-rm dist/*
