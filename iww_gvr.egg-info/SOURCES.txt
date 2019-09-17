@@ -1,6 +1,7 @@
 MANIFEST.in
 README.md
 setup.py
+doc/VersionModification_FollowUP.txt
 doc/WW_GVR_MEMORANDUM_v20190912-DRAFT.pdf
 iww_gvr/__init__.py
 iww_gvr/__main__.py

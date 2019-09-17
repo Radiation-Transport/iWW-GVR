@@ -935,7 +935,7 @@ def plot(self):
         
         while True:
             PLANE_QUOTE = input(' Select the quote ' + INFO_QUOTE + ':')
-            if  ISnumber(PLANE_QUOTE):    
+            if  ISnumber([PLANE_QUOTE]):    
                 PLANE_QUOTE = float (PLANE_QUOTE)
                 break
             else:
@@ -1012,7 +1012,8 @@ def plot_ww(self, PAR_Select, PLANE, PLANE_QUOTE, ENERGY):
         WW_P=np.array(self.wwe[PAR_Select][PE])   
         
         WW_P=WW_P.reshape(len(self.Z)-1,len(self.Y)-1,len(self.X)-1)
-        WW_P=np.flipud(WW_P)    
+        WW_P=WW_P [-1::-1,-1::-1,:]
+        # WW_P=np.flipud(WW_P)    
 
 
         if flag:
@@ -1024,8 +1025,10 @@ def plot_ww(self, PAR_Select, PLANE, PLANE_QUOTE, ENERGY):
                     flag=False
                 else:
                     DIM = closest(self.X, PLANE_QUOTE)
+                    if DIM == (len(self.X) - 1) :
+                        DIM = DIM - 1
                     extent = [self.Y[0],self.Y[-1],self.Z[0],self.Z[-1]]
-                    vals = WW_P [:,:, DIM-1]   # Slice in X  
+                    vals = WW_P [:,-1::-1, DIM]   # Slice in X  
                     plt.xlabel("Y")
                     plt.ylabel("Z")
             
@@ -1035,8 +1038,11 @@ def plot_ww(self, PAR_Select, PLANE, PLANE_QUOTE, ENERGY):
                     flag=False
                 else:
                     DIM = closest(self.Y, PLANE_QUOTE)
+                    DIM = len(self.Y) - DIM -1
+                    if DIM == (len(self.Y) - 1) :
+                        DIM = DIM - 1
                     extent = [self.X[0],self.X[-1],self.Z[0],self.Z[-1]]                    
-                    vals = WW_P [:, DIM-1,:]   # Slice in Y    
+                    vals = WW_P [:, DIM,:]   # Slice in Y    
                     plt.xlabel("X")
                     plt.ylabel("Z")
             
@@ -1046,8 +1052,14 @@ def plot_ww(self, PAR_Select, PLANE, PLANE_QUOTE, ENERGY):
                     flag=False
                 else:
                     DIM = closest(self.Z, PLANE_QUOTE)
+                    print('1-->'+str(DIM))
+                    DIM = len(self.Z) - DIM -1
+                    if DIM == (len(self.Z) - 1) :
+                        DIM = DIM - 1
+                        print('2-->'+str(DIM))
                     extent = [self.X[0],self.X[-1],self.Y[0],self.Y[-1]]
-                    vals = WW_P [DIM-1,:,:]  # Slice in Z
+                    
+                    vals = WW_P [DIM,:,:]  # Slice in Z
                     plt.xlabel("X")
                     plt.ylabel("Y")
                     
