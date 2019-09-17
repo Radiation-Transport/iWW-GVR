@@ -1052,11 +1052,11 @@ def plot_ww(self, PAR_Select, PLANE, PLANE_QUOTE, ENERGY):
                     flag=False
                 else:
                     DIM = closest(self.Z, PLANE_QUOTE)
-                    print('1-->'+str(DIM))
+                    # print('1-->'+str(DIM))
                     DIM = len(self.Z) - DIM -1
                     if DIM == (len(self.Z) - 1) :
                         DIM = DIM - 1
-                        print('2-->'+str(DIM))
+                        # print('2-->'+str(DIM))
                     extent = [self.X[0],self.X[-1],self.Y[0],self.Y[-1]]
                     
                     vals = WW_P [DIM,:,:]  # Slice in Z
