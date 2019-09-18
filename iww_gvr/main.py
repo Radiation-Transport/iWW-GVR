@@ -1205,8 +1205,8 @@ def gvr_soft(gvrname):
     del gvr.eb
     del gvr.min, gvr.max
     
-    gvr.min=[ww_inp.min()] # As there is only one bin in the gvr matrix
-    gvr.max=[ww_inp.min()] # As there is only one bin in the gvr matrix
+    gvr.min=[min(gvr.wwe[0][0])] # As there is only one bin in the gvr matrix
+    gvr.max=[max(gvr.wwe[0][0])] # As there is only one bin in the gvr matrix
                     
     gvr.eb=[emax]
         

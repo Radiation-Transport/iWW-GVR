@@ -10,13 +10,14 @@ BUILDING A NEW VERSION:
 
 2. Go to iww_gvr/iww_gvr: add new scripts and modify main.py accordingly if necessary 
 3. Go to iww_gvr parent folder
-4. Open 'setup.py'.
+4. Open '__version__.py'.
 5. Modify the version number in the variable 'version' and save.
-6. Go to the same folder where setup.py is located and from command line execute:
+6. Go to iww_gvr parent folder
+7. Go to the same folder where setup.py is located and from command line execute:
+
+    > python setup.py sdist bdist_wheel clean --all install clean --all
 	
-	> python setup.py sdist bdist_wheel clean --all install clean --all
-	
-7. A new version ready for installation has been built and stored in the "dist" folder.
+
 	
 INSTALLATION/UPDATING:
 Enter in iww_gvr/dist folder:
