@@ -1,3 +1,16 @@
+'''
+########################################################################################################
+# Copyright 2019 F4E | European Joint Undertaking for ITER and the Development                         #
+# of Fusion Energy (‘Fusion for Energy’). Licensed under the EUPL, Version 1.1                         #
+# or - as soon they will be approved by the European Commission - subsequent versions                  #
+# of the EUPL (the “Licence”). You may not use this work except in compliance                          #
+# with the Licence. You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl.html       #
+# Unless required by applicable law or agreed to in writing, software distributed                      #
+# under the Licence is distributed on an “AS IS” basis, WITHOUT WARRANTIES                             #
+# OR CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions                    #
+# and limitations under the Licence.                                                                   #
+########################################################################################################
+'''
 
 #######################################
 #####  Python modules to load  ########
@@ -21,8 +34,10 @@ from copy import deepcopy # To copy a ww class instance in soft() and not modify
 from iww_gvr import meshtal_module # It needs to be compatible with Python 3!!!
 #from evtk.hl import gridToVTK # https://pypi.org/project/pyevtk/, pip install pyevtk
 from pyevtk.hl import gridToVTK # https://pypi.org/project/pyevtk/, pip install pyevtk for alvaro works like this
+import vtk
 from tqdm import tqdm        # Progress bars
 from scipy import ndimage as nd # Filling holes in zoneDEF 'auto'
+from scipy.spatial.transform import Rotation as R # For the rotation matrices in cyl
 # import plotly.graph_objects as go # for interactive plotting
 import time
 
@@ -57,8 +72,11 @@ class ww_item:
         # - self.wwe  : ww set list                [[[]e_i,[]e_i+1, ...,[]e_n]|ParNo1,[[]e_i,[]e_i+1, ...,[]e_n]|ParNo2]
         # - self.wwme : ww set numpy array         [[[k,j,i]e_i,[k,j,i]e_i+1, ....,,[k,j,i]e_n]|ParNo1,[[k,j,i]e_i,[k,j,i]e_i+1, ....,,[k,j,i]e_n ]|ParNo2]    
         # - self.ratio: max ratio of voxel with nearby values (shape as self.wwme)
+        # - self.coord: it states 'cart' for cartesian coordinates
         
         self.d  = dict
+        
+        self.coord = 'cart'
         
         self.X  = X
         self.Y  = Y
@@ -137,9 +155,9 @@ class ww_item:
         print (line_X)
         print (line_Y)
         print (line_Z)
-
+        print('\n The mesh coordinates are cartesian.')
         print('\n The file contain {0} particle/s and {1} voxels!'.format(int(self.par),int(self.bins)*int(self.par)))
-               
+        
         if   (self.par  == 1):
             print('\n ***** Particle No.1 ****')
             print(' Energy[{0}]: {1}\n\n'.format(len(self.eb[0]),self.eb[0]))
@@ -556,193 +574,208 @@ def write(wwdata,wwfiles,index):
         ww=wwdata[index]
         
     if   ans == 'vtk'  :   # To export to VTK
-        
-        # Create and fill the "cellData" dictionary 
-        dictName = []
-        dictValue= []
-        for j in range (0,int(ww.par)):
-            for i in range (0,len(ww.eb[j])):
-                dictValue.append(ww.wwe[j][i])  
-                
-                if ww.d['B2_par']==True:
-                    dictName.append('WW_ParNo'+str(j+2)+'_E='+str(ww.eb[j][i])+'_MeV')
-                else:
-                    dictName.append('WW_ParNo'+str(j+1)+'_E='+str(ww.eb[j][i])+'_MeV')
-        
-        if max([e.max() for e in ww.ratio[0]]) != 1: # To be improved just to check if matrix is all one.
+        if ww.coord == 'cyl':
+            writeVTK_cyl(ww)
+        else:
+            # Create and fill the "cellData" dictionary 
+            dictName = []
+            dictValue= []
             for j in range (0,int(ww.par)):
-                for e in range (0,len(ww.eb[j])):
-                    dictValue.append(ww.ratio[j][e])                            
+                for i in range (0,len(ww.eb[j])):
+                    dictValue.append(ww.wwe[j][i])  
                     if ww.d['B2_par']==True:
-                        dictName.append('[RATIO]_WW_ParNo'+str(j+2)+'_E='+str(ww.eb[j][i])+'_MeV')
+                        dictName.append('WW_ParNo'+str(j+2)+'_E='+str(ww.eb[j][i])+'_MeV')
                     else:
-                        dictName.append('[RATIO]_WW_ParNo'+str(j+1)+'_E='+str(ww.eb[j][i])+'_MeV')
-                    
-        for i in range (0,len(dictValue)):
-            dictValue[i]=np.reshape(dictValue[i],int(ww.bins)) 
-        
-        zipDict  =   zip(dictName, dictValue)
-        cellData =   dict(zipDict)
-
-        # Export to VTR format
-        gridToVTK("./"+wwfiles[index], np.array(ww.X), np.array(ww.Y), np.array(ww.Z), cellData )
+                        dictName.append('WW_ParNo'+str(j+1)+'_E='+str(ww.eb[j][i])+'_MeV')
+            
+            if max([e.max() for e in ww.ratio[0]]) != 1: # To be improved just to check if matrix is all one.
+                for j in range(len(ww.ratio)):
+                    maxratio = np.ones(np.shape(ww.ratio[0][0]))
+                    oratio = np.array(ww.ratio)
+                    for z in range(len(ww.Z)-1):
+                        for y in range(len(ww.Y)-1):
+                            for x in range(len(ww.X)-1):
+                                maxratio[z][y][x] = max(oratio[j,...,z,y,x])
+                    dictValue.append(maxratio)
+                    dictName.append('[RATIO]_WW_ParNo'+str(1+j))
+                
+                #for j in range (0,int(ww.par)):
+                #    for e in range (0,len(ww.eb[j])):
+                #        dictValue.append(ww.ratio[j][e]) 
+                #        print(123)
+                #        if ww.d['B2_par']==True:
+                #            dictName.append('[RATIO]_WW_ParNo'+str(j+2)+'_E='+str(ww.eb[j][i])+'_MeV')
+                #        else:
+                #            dictName.append('[RATIO]_WW_ParNo'+str(j+1)+'_E='+str(ww.eb[j][i])+'_MeV')
+                #        
+            for i in range (0,len(dictValue)):
+                dictValue[i]=np.reshape(dictValue[i],int(ww.bins)) 
+            
+            zipDict  =   zip(dictName, dictValue)
+            cellData =   dict(zipDict)
+    
+            # Export to VTR format
+            gridToVTK("./"+wwfiles[index], np.array(ww.X), np.array(ww.Y), np.array(ww.Z), cellData )
         print(' VTK... written!')
         
     elif ans == 'wwinp':   # To export to WW MCNP format
-        with open(outputFile, "w") as outfile:
-        
-            line_A='{:>10}'.format('{:.0f}'.format(ww.d['B1_if']))
-            line_B='{:>10}'.format('{:.0f}'.format(ww.d['B1_iv']))
-            if ww.d['B2_par']==True:
-                line_C='{:>10}'.format('{:.0f}'.format(ww.d['B1_ni']+1))
-            else:
-                line_C='{:>10}'.format('{:.0f}'.format(ww.d['B1_ni'])) 
-            line_D='{:>10}'.format('{:.0f}'.format(ww.d['B1_nr']))  
-            outfile.write(line_A+line_B+line_C+line_D+'\n')
+        if ww.coord == 'cyl':
+            writeWWINP_cyl(ww)
+        else:
+            with open(outputFile, "w") as outfile:
             
-            
-            if    (ww.par == 1) and ww.d['B2_par']==False:
-                line_A='{:>10}'.format('{:.0f}'.format(len(ww.eb[0])))
-                line_B='{:>10}'.format('')
-            elif  (ww.par == 1) and ww.d['B2_par']==True:
-                line_A='{:>10}'.format('{:.0f}'.format(0))
-                line_B='{:>10}'.format('{:.0f}'.format(len(ww.eb[0])))        
-            else: 
-                line_A='{:>10}'.format('{:.0f}'.format(len(ww.eb[0])))
-                line_B='{:>10}'.format('{:.0f}'.format(len(ww.eb[1])))
+                line_A='{:>10}'.format('{:.0f}'.format(ww.d['B1_if']))
+                line_B='{:>10}'.format('{:.0f}'.format(ww.d['B1_iv']))
+                if ww.d['B2_par']==True:
+                    line_C='{:>10}'.format('{:.0f}'.format(ww.d['B1_ni']+1))
+                else:
+                    line_C='{:>10}'.format('{:.0f}'.format(ww.d['B1_ni'])) 
+                line_D='{:>10}'.format('{:.0f}'.format(ww.d['B1_nr']))  
+                outfile.write(line_A+line_B+line_C+line_D+'\n')
                 
-            outfile.write(line_A+line_B+'\n')  
-            
-            line_A= '{:>9}'.format('{:.2f}'.format(len(ww.X)-1))
-            line_B='{:>13}'.format('{:.2f}'.format(len(ww.Y)-1))
-            line_C='{:>13}'.format('{:.2f}'.format(len(ww.Z)-1))
-            line_D='{:>13}'.format('{:.2f}'.format(ww.d['B2_Xo']))
-            line_E='{:>13}'.format('{:.2f}'.format(ww.d['B2_Yo']))
-            line_F='{:>12}'.format('{:.2f}'.format(ww.d['B2_Zo']))
-            outfile.write(line_A+line_B+line_C+line_D+line_E+line_F+'    \n')
-            
-            line_A= '{:>9}'.format('{:.2f}'.format(len(ww.d['vec_coarse'][0])-1))
-            line_B='{:>13}'.format('{:.2f}'.format(len(ww.d['vec_coarse'][1])-1))
-            line_C='{:>13}'.format('{:.2f}'.format(len(ww.d['vec_coarse'][2])-1))
-            line_D='{:>13}'.format('{:.2f}'.format(1))  
-            outfile.write(line_A+line_B+line_C+line_D+'    \n')
-            
-            l=[]
-            for i in range(len(ww.d['vec_coarse'][0])):
-                l.append(ww.d['vec_coarse'][0][i])
-                try:
-                    l.append(ww.d['vec_fine'][0][i])
-                except:
-                    pass
-            s = ''
-
-            for i in l:
-                s = s + ' {: 1.5e}'.format(i)
-                if len(s.split()) == 6:
-                    outfile.write(s+'\n')
-                    s = ' {: 1.5e}'.format(1)
-                if len(s.split()) == 3:
-                    s = s +' {: 1.5e}'.format(1)
-            outfile.write(s+'\n')
-            
-            l=[]
-            for i in range(len(ww.d['vec_coarse'][1])):
-                l.append(ww.d['vec_coarse'][1][i])
-                try:
-                    l.append(ww.d['vec_fine'][1][i])
-                except:
-                    pass
-            s = ''
-            for i in l:
-                s = s + ' {: 1.5e}'.format(i)
-                if len(s.split()) == 6:
-                    outfile.write(s+'\n')
-                    s = ' {: 1.5e}'.format(1)
-                if len(s.split()) == 3:
-                    s = s +' {: 1.5e}'.format(1)
-            outfile.write(s+'\n')
-            
-            l=[]
-            for i in range(len(ww.d['vec_coarse'][2])):
-                l.append(ww.d['vec_coarse'][2][i])
-                try:
-                    l.append(ww.d['vec_fine'][2][i])
-                except:
-                    pass
-            s = ''
-            for i in l:
-                s = s + ' {: 1.5e}'.format(i)
-                if len(s.split()) == 6:
-                    outfile.write(s+'\n')
-                    s = ' {: 1.5e}'.format(1)
-                if len(s.split()) == 3:
-                    s = s +' {: 1.5e}'.format(1)
-            outfile.write(s+'\n')
-            
-           
-            # ********* Writing of WW values *********
-            for par in range (0,ww.par):
-                jj       = 0
-                value    = 0
-                line_new = []
-                counter  = 0       
                 
-                # Writing of energy bins
-                for item in ww.eb[par]:
-                                     
-                    if  jj<5: 
-                        line_new='{:>13}'.format('{:.4e}'.format(item))
-                        outfile.write(line_new)
-                        jj=jj+1
-                        if counter == len(ww.eb[par])-1:
-                             outfile.write('\n')
-                             jj=0
-                             counter  = 0  
-                    else:
-                        line_new='{:>13}'.format('{:.4e}'.format(item))
-                        outfile.write(line_new)
-                        outfile.write('\n')
-                        jj=0
-                    counter = counter + 1
+                if    (ww.par == 1) and ww.d['B2_par']==False:
+                    line_A='{:>10}'.format('{:.0f}'.format(len(ww.eb[0])))
+                    line_B='{:>10}'.format('')
+                elif  (ww.par == 1) and ww.d['B2_par']==True:
+                    line_A='{:>10}'.format('{:.0f}'.format(0))
+                    line_B='{:>10}'.format('{:.0f}'.format(len(ww.eb[0])))        
+                else: 
+                    line_A='{:>10}'.format('{:.0f}'.format(len(ww.eb[0])))
+                    line_B='{:>10}'.format('{:.0f}'.format(len(ww.eb[1])))
+                    
+                outfile.write(line_A+line_B+'\n')  
                 
-                jj       = 0
-                value    = 0
-                line_new = []
-                counter  = 0 
+                line_A= '{:>9}'.format('{:.2f}'.format(len(ww.X)-1))
+                line_B='{:>13}'.format('{:.2f}'.format(len(ww.Y)-1))
+                line_C='{:>13}'.format('{:.2f}'.format(len(ww.Z)-1))
+                line_D='{:>13}'.format('{:.2f}'.format(ww.d['B2_Xo']))
+                line_E='{:>13}'.format('{:.2f}'.format(ww.d['B2_Yo']))
+                line_F='{:>12}'.format('{:.2f}'.format(ww.d['B2_Zo']))
+                outfile.write(line_A+line_B+line_C+line_D+line_E+line_F+'    \n')
                 
-                # Writing of ww bins
-                for e in range (0,len(ww.eb[par])):
-                    bar = tqdm(unit=' lines',desc=' Writing energy bin',total=len(ww.wwe[par][e]))
-                    for item in ww.wwe[par][e]:
-                        bar.update()
-                        # print(type(item))
-                        # print(item)
-                        value    = float(item)
+                line_A= '{:>9}'.format('{:.2f}'.format(len(ww.d['vec_coarse'][0])-1))
+                line_B='{:>13}'.format('{:.2f}'.format(len(ww.d['vec_coarse'][1])-1))
+                line_C='{:>13}'.format('{:.2f}'.format(len(ww.d['vec_coarse'][2])-1))
+                line_D='{:>13}'.format('{:.2f}'.format(1))  
+                outfile.write(line_A+line_B+line_C+line_D+'    \n')
+                
+                l=[]
+                for i in range(len(ww.d['vec_coarse'][0])):
+                    l.append(ww.d['vec_coarse'][0][i])
+                    try:
+                        l.append(ww.d['vec_fine'][0][i])
+                    except:
+                        pass
+                s = ''
+    
+                for i in l:
+                    s = s + ' {: 1.5e}'.format(i)
+                    if len(s.split()) == 6:
+                        outfile.write(s+'\n')
+                        s = ' {: 1.5e}'.format(1)
+                    if len(s.split()) == 3:
+                        s = s +' {: 1.5e}'.format(1)
+                outfile.write(s+'\n')
+                
+                l=[]
+                for i in range(len(ww.d['vec_coarse'][1])):
+                    l.append(ww.d['vec_coarse'][1][i])
+                    try:
+                        l.append(ww.d['vec_fine'][1][i])
+                    except:
+                        pass
+                s = ''
+                for i in l:
+                    s = s + ' {: 1.5e}'.format(i)
+                    if len(s.split()) == 6:
+                        outfile.write(s+'\n')
+                        s = ' {: 1.5e}'.format(1)
+                    if len(s.split()) == 3:
+                        s = s +' {: 1.5e}'.format(1)
+                outfile.write(s+'\n')
+                
+                l=[]
+                for i in range(len(ww.d['vec_coarse'][2])):
+                    l.append(ww.d['vec_coarse'][2][i])
+                    try:
+                        l.append(ww.d['vec_fine'][2][i])
+                    except:
+                        pass
+                s = ''
+                for i in l:
+                    s = s + ' {: 1.5e}'.format(i)
+                    if len(s.split()) == 6:
+                        outfile.write(s+'\n')
+                        s = ' {: 1.5e}'.format(1)
+                    if len(s.split()) == 3:
+                        s = s +' {: 1.5e}'.format(1)
+                outfile.write(s+'\n')
+                
+            
+                # ********* Writing of WW values *********
+                for par in range (0,ww.par):
+                    jj       = 0
+                    value    = 0
+                    line_new = []
+                    counter  = 0       
+                    
+                    # Writing of energy bins
+                    for item in ww.eb[par]:
+                                        
                         if  jj<5: 
-                            line_new='{:>13}'.format('{:.4e}'.format(value))
+                            line_new='{:>13}'.format('{:.4e}'.format(item))
                             outfile.write(line_new)
                             jj=jj+1
-                            
-                            if counter == len(ww.wwe[par][e])-1:
+                            if counter == len(ww.eb[par])-1:
                                 outfile.write('\n')
                                 jj=0
-                                counter  = 0
-                            else:
-                                counter = counter + 1
-                                                         
+                                counter  = 0  
                         else:
-                            line_new='{:>13}'.format('{:.4e}'.format(value))
+                            line_new='{:>13}'.format('{:.4e}'.format(item))
                             outfile.write(line_new)
                             outfile.write('\n')
                             jj=0
-                            
-                            if counter == len(ww.wwe[par][e])-1:
-                                # outfile.write('\n')
-                                jj=0
-                                counter  = 0 
+                        counter = counter + 1
+                    
+                    jj       = 0
+                    value    = 0
+                    line_new = []
+                    counter  = 0 
+                    
+                    # Writing of ww bins
+                    for e in range (0,len(ww.eb[par])):
+                        bar = tqdm(unit=' lines',desc=' Writing energy bin',total=len(ww.wwe[par][e]))
+                        for item in ww.wwe[par][e]:
+                            bar.update()
+                            # print(type(item))
+                            # print(item)
+                            value    = float(item)
+                            if  jj<5: 
+                                line_new='{:>13}'.format('{:.4e}'.format(value))
+                                outfile.write(line_new)
+                                jj=jj+1
+                                
+                                if counter == len(ww.wwe[par][e])-1:
+                                    outfile.write('\n')
+                                    jj=0
+                                    counter  = 0
+                                else:
+                                    counter = counter + 1
+                                                            
                             else:
-                                counter = counter + 1
-                    bar.close()
+                                line_new='{:>13}'.format('{:.4e}'.format(value))
+                                outfile.write(line_new)
+                                outfile.write('\n')
+                                jj=0
+                                
+                                if counter == len(ww.wwe[par][e])-1:
+                                    # outfile.write('\n')
+                                    jj=0
+                                    counter  = 0 
+                                else:
+                                    counter = counter + 1
+                        bar.close()
         print(' File... written!')
 
 # Function for analysing the WW file
@@ -1126,7 +1159,8 @@ def gvr_soft(gvrname):
                     break
         except:
             print(' Not a valid file')
-            
+    
+    
     mesh=meshtal_module.Meshtal(fname)
     print(' The following tallies have been found:\n')
     for key in mesh.mesh.keys():
@@ -1140,80 +1174,128 @@ def gvr_soft(gvrname):
             break
         except:
             print(' Not valid')
-            
-    X = m.dims[3]+m.origin[3]
-    Y = m.dims[2]+m.origin[2]
-    Z = m.dims[1]+m.origin[1]
-    vec_coarse = [X,Y,Z]
-    vec_fine = [[1 for i in range(len(vec_coarse[0])-1)],[1 for i in range(len(vec_coarse[1])-1)],[1 for i in range(len(vec_coarse[2])-1)]]
-    nbins = (len(X)-1)*(len(Y)-1)*(len(Z)-1)
-    nPar = 1
-    eb = [100]
-    m.readMCNP(mesh.f)
-    ww1 = m.dat.flatten()        
-    d = {'B1_if': 1,
-         'B1_iv': 1,
-         'B1_ne': ['1'],
-         'B1_ni': 1,
-         'B1_nr': 10,
-         'B2_Xf': m.dims[3][-1]+m.origin[3],
-         'B2_Xo': m.origin[3],
-         'B2_Yf': m.dims[2][-1]+m.origin[2],
-         'B2_Yo': m.origin[2],
-         'B2_Zf': m.dims[1][-1]+m.origin[1],
-         'B2_Zo': m.origin[1],
-         'B2_par': False,
-         'vec_coarse':vec_coarse,
-         'vec_fine':vec_fine}
-    gvr = ww_item(gvrname,X,Y,Z,nbins,nPar,ww1,eb,[],[],d) # A ww skeleton is generated with the info from the mesh file
+    if not m.cart:
+        gvr = gvr_soft_cyl(m,mesh,gvrname)
+
+    else:
+        X = m.dims[3]+m.origin[3]
+        Y = m.dims[2]+m.origin[2]
+        Z = m.dims[1]+m.origin[1]
+        vec_coarse = [X,Y,Z]
+        vec_fine = [[1 for i in range(len(vec_coarse[0])-1)],[1 for i in range(len(vec_coarse[1])-1)],[1 for i in range(len(vec_coarse[2])-1)]]
+        nbins = (len(X)-1)*(len(Y)-1)*(len(Z)-1)
+        nPar = 1
+        eb = [100]
+        m.readMCNP(mesh.f)
+        ww1 = m.dat.flatten()        
+        d = {'B1_if': 1,
+            'B1_iv': 1,
+            'B1_ne': ['1'],
+            'B1_ni': 1,
+            'B1_nr': 10,
+            'B2_Xf': m.dims[3][-1]+m.origin[3],
+            'B2_Xo': m.origin[3],
+            'B2_Yf': m.dims[2][-1]+m.origin[2],
+            'B2_Yo': m.origin[2],
+            'B2_Zf': m.dims[1][-1]+m.origin[1],
+            'B2_Zo': m.origin[1],
+            'B2_par': False,
+            'vec_coarse':vec_coarse,
+            'vec_fine':vec_fine}
+        gvr = ww_item(gvrname,X,Y,Z,nbins,nPar,ww1,eb,[],[],d) # A ww skeleton is generated with the info from the mesh file
     gvr.info()    
-    
-    while True:
-        degree = input(' Insert the toroidal coverage of the model [degree, all, auto] for Hole Filling approach or [No]: ')
-        try: 
-            degree = float(degree)
-            break
-        except: pass
-        if degree in ['all','No','auto']: break
-    if degree == 'No': zoneID = []
-    else: zoneID,factor = zoneDEF(gvr,degree)
-            
-    ww_inp = np.zeros(np.shape(gvr.wwme[0][0]))
-    fluxinp_max = np.max(gvr.wwme[0][0])
-    bar = tqdm(unit=' Z slices',desc=' GVR',total=len(gvr.Z)-1)
-    for k in range (0, len(gvr.Z)-1):
-        for j in range (0, len(gvr.Y)-1):
-            for i in range (0, len(gvr.X)-1):
-                ww_inp[k,j,i]=np.power(gvr.wwme[0][0][k,j,i]/fluxinp_max*(2/(beta+1)), soft) # Van Vick/A.Davis
-        bar.update()
-    bar.close()
 
-    if len(zoneID) > 0: # Hole filling (Super efficient but the values are not averaged or interpolated)
-        z = np.tile(zoneID,(len(gvr.Z)-1,1,1)) # A 3d zoneID
-        holes = ww_inp==0
-        holes = holes*z               # Only the places that are inside the zoneID and have a value of zero in ww_inp will be filled
-        holes = holes==1
-        ww_inp = fill(ww_inp,holes)   # The hole filling gives to the holes the same value as the nearest non-zero value            
-    gvr.wwme[0][0] = ww_inp
-    # Modification of wwe (denesting list wihth the itertools)
-    step1 = gvr.wwme[0][0].tolist()
-    step2 = list(chain(*step1))
-    gvr.wwe[0][0] = list(chain(*step2))
-
-    # Update of characteristics of weight window set
-    emax=[gvr.eb[0][-1]]
-    del gvr.eb
-    del gvr.min, gvr.max
-    
-    gvr.min=[min(gvr.wwe[0][0])] # As there is only one bin in the gvr matrix
-    gvr.max=[max(gvr.wwe[0][0])] # As there is only one bin in the gvr matrix
-                    
-    gvr.eb=[emax]
+    if gvr.coord == 'cart': 
+        while True:
+            degree = input(' Insert the toroidal coverage of the model [degree, all, auto] for Hole Filling approach or [No]: ')
+            try: 
+                degree = float(degree)
+                break
+            except: pass
+            if degree in ['all','No','auto']: break
+        if degree == 'No': zoneID = []
+        else: zoneID,factor = zoneDEF(gvr,degree)
+                
+        ww_inp = np.zeros(np.shape(gvr.wwme[0][0]))
+        fluxinp_max = np.max(gvr.wwme[0][0])
+        bar = tqdm(unit=' Z slices',desc=' GVR',total=len(gvr.Z)-1)
+        for k in range (0, len(gvr.Z)-1):
+            for j in range (0, len(gvr.Y)-1):
+                for i in range (0, len(gvr.X)-1):
+                    ww_inp[k,j,i]=np.power(gvr.wwme[0][0][k,j,i]/fluxinp_max*(2/(beta+1)), soft) # Van Vick/A.Davis
+            bar.update()
+        bar.close()
         
-    gvr.par = 1
-    gvr.d['B1_ni'] = 1        
-    gvr.d['B1_ne'] = 1        
-
+        if len(zoneID) > 0: # Hole filling (Super efficient but the values are not averaged or interpolated)
+            z = np.tile(zoneID,(len(gvr.Z)-1,1,1)) # A 3d zoneID
+            holes = ww_inp==0
+            holes = holes*z               # Only the places that are inside the zoneID and have a value of zero in ww_inp will be filled
+            holes = holes==1
+            ww_inp = fill(ww_inp,holes)   # The hole filling gives to the holes the same value as the nearest non-zero value 
+        
+        gvr.wwme[0][0] = ww_inp
+        # Modification of wwe (denesting list wihth the itertools)
+        step1 = gvr.wwme[0][0].tolist()
+        step2 = list(chain(*step1))
+        gvr.wwe[0][0] = list(chain(*step2))
+        
+        # Update of characteristics of weight window set
+        emax=[gvr.eb[0][-1]]
+        del gvr.eb
+        del gvr.min, gvr.max
+        
+        gvr.min=[min(gvr.wwe[0][0])] # As there is only one bin in the gvr matrix
+        gvr.max=[max(gvr.wwe[0][0])] # As there is only one bin in the gvr matrix
+                        
+        gvr.eb=[emax]
+            
+        gvr.par = 1
+        gvr.d['B1_ni'] = 1        
+        gvr.d['B1_ne'] = 1 
+        
+    else: # cyl coord
+        while True:
+            degree = input(' Please insert Yes or No for Hole-filling approach: ')
+            if degree == 'Yes' or degree == 'No': break
+        if degree == 'Yes':
+            while True:
+                option = input(' Please select an option for the problem geometry [all, auto]: ')
+                if option == 'all' or option == 'auto':
+                    break
+                else:
+                    print(' Not a valid option')
+            zoneID,factor = zoneDEF_cyl(gvr, option)
+            gvr.zoneID = zoneID
+        
+        ww_inp = np.zeros(np.shape(gvr.wwme[0][0]))
+        fluxinp_max = np.max(gvr.wwme[0][0])
+        bar = tqdm(unit=' K slices',desc=' GVR',total=len(gvr.K)-1)
+        for k in range (0, len(gvr.K)-1):
+            for j in range (0, len(gvr.J)-1):
+                for i in range (0, len(gvr.I)-1):
+                    ww_inp[k,j,i]=np.power(gvr.wwme[0][0][k,j,i]/fluxinp_max*(2/(beta+1)), soft) # Van Vick/A.Davis
+            bar.update()
+        bar.close()
+        
+        gvr.wwme[0][0] = ww_inp
+        if degree == 'Yes': # Hole filling
+            ww_mod=gvr.wwme[0]
+            for g in range (int(gvr.d['B1_ne'][0])):
+                z=[] # A 3d zoneID
+                for i in range(len(zoneID)):
+                    z.append([])
+                    for m in range(len(gvr.J)-1):
+                        z[i].append(zoneID[i])
+                while True: # For some unknown reason the fill operation when using cyl coordinates do not clear all the holes at once, several iterations are required
+                    holes = ww_mod[g]==0
+                    holes = holes*z
+                    holes=holes==1
+                    if len(np.argwhere(holes))==0:
+                        break
+                    ww_mod[g] = fill(ww_mod[g], holes)
+            gvr.wwme[0] = ww_mod
+        # Modification of ww 
+        gvr.ww[0] = gvr.wwme[0].flatten()
     return gvr
 
 # THE WW SHOULD BE ANALYSED BEFORE USING. Function to mitigate long history par. by reducing the values that produce a too high ratio    
@@ -1256,44 +1338,65 @@ def operate():
         index  = selectfile(wwfiles)
        
     if   ans == 'soft':
-       
-        flag = True
-        while flag:
-             HF = input(' Hole Filling approach [Yes, No]: ')
-             if HF =='Yes' or HF =='No' :
-                flag = False
-                if HF == 'Yes':
-                    if not wwdata[index].degree:
-                        while True:
-                            degree = input(" Insert the toroidal coverage of the model [degree, all, auto]: ")
-                            
-                            if degree.isdigit():
-                                degree = float(degree)/2
-                                break
-                            elif degree == 'all':
-                                break
-                            elif degree == 'auto':
-                                break
-                            else:
-                                print(' Please insert one of the options!')
-                        zoneID, factor = zoneDEF(wwdata[index],degree)
-                        wwdata[index].degree.append(zoneID)
-                        wwdata[index].degree.append(factor)
+        if wwdata[index].coord == 'cyl':
+            while True:
+                HF = input(' Hole Filling approach [Yes, No]: ')
+                if HF =='Yes' or HF =='No' : break
+            
+            copy = deepcopy(wwdata[index])
+            if HF == 'Yes':
+                while True:
+                    option = input(' Please select an option for the problem geometry [all, auto]: ')
+                    if option == 'all' or option == 'auto':
+                        break
                     else:
-                        zoneID = wwdata[index].degree[0]
-                        factor = wwdata[index].degree[1]
-                else:
-                    zoneID, factor = [], []
-             else: 
-                print(' Please insert Yes or No!')
-                flag = True      
-                
-        
-        copy = deepcopy(wwdata[index])
-        
-        ww_out = copy.soft(zoneID)
-        ww_out.name = fname
-        flag   = True 
+                        print(' Not a valid option')
+                zoneID,factor = zoneDEF_cyl(copy,option)
+            else:
+                zoneID = []
+          
+            ww_out = copy.soft_cyl(zoneID)
+            ww_out.name = fname
+            flag   = True 
+            
+        else:    
+            flag = True
+            while flag:
+                HF = input(' Hole Filling approach [Yes, No]: ')
+                if HF =='Yes' or HF =='No' :
+                    flag = False
+                    if HF == 'Yes':
+                        if not wwdata[index].degree:
+                            while True:
+                                degree = input(" Insert the toroidal coverage of the model [degree, all, auto]: ")
+                                
+                                if degree.isdigit():
+                                    degree = float(degree)/2
+                                    break
+                                elif degree == 'all':
+                                    break
+                                elif degree == 'auto':
+                                    break
+                                else:
+                                    print(' Please insert one of the options!')
+                            zoneID, factor = zoneDEF(wwdata[index],degree)
+                            wwdata[index].degree.append(zoneID)
+                            wwdata[index].degree.append(factor)
+                        else:
+                            zoneID = wwdata[index].degree[0]
+                            factor = wwdata[index].degree[1]
+                    else:
+                        zoneID, factor = [], []
+                else: 
+                    print(' Please insert Yes or No!')
+                    flag = True      
+                    
+            
+            copy = deepcopy(wwdata[index])
+            
+            ww_out = copy.soft(zoneID)
+            ww_out.name = fname
+            flag   = True 
         
         print(' Softening done!\n')
 
@@ -1302,8 +1405,9 @@ def operate():
            print(' Impossible to add a weight window set: already 2 sets are present!\n')
            flag   = False
            ww_out = None
-       else:  
-           ww_out      = wwdata[index].add()
+       else:
+           copy        = deepcopy(wwdata[index])
+           ww_out      = copy.add()
            ww_out.name = fname
            flag        = True
            print(' Additional weight window set incorporated!\n')           
@@ -1318,7 +1422,11 @@ def operate():
                 print(' Not a valid number')
             
         copy = deepcopy(wwdata[index])
-        mitigate(copy,maximum_ratio)
+        if copy.coord == 'cyl':
+            mitigate_cyl(copy,maximum_ratio)
+        else:
+            mitigate(copy,maximum_ratio)
+        
         ww_out = copy
         ww_out.name = fname
         flag   = True 
@@ -1330,8 +1438,9 @@ def operate():
            print(' Impossible to remove a weight window set: only 1 set is present!\n')
            flag   = False
            ww_out = None
-       else:  
-           ww_out      = wwdata[index].remove()
+       else:
+           copy        = deepcopy(wwdata[index])
+           ww_out      = copy.remove()
            ww_out.name = fname
            flag        = True
            print(' Weight window set removed!\n')  
@@ -1347,7 +1456,7 @@ def operate():
 def answer_loop(menu):
     pkeys = ['open','info','write','analyse','plot','operate','end','gvr']
     wkeys = ['wwinp','vtk','end']
-    okeys = ['add','rem','soft','flip','mit','end']
+    okeys = ['add','rem','soft','mit','end']
     menulist = {'principal':pkeys, 'write':wkeys, 'operate':okeys}  
     while True:
         ans = input(" enter action :")
@@ -1483,6 +1592,877 @@ def fill(data, invalid):
                                     return_indices=True)
     return data[tuple(ind)]
 
+    
+#######################################
+####     Cylindrical Functions     ####
+#######################################    
+    
+def load_cyl(InputFile):
+    # LIMITATION: Only works with ww that have a single coarse mesh in each direction 
+    #  This limitation could be overcome.
+    #  It may be that the original parser also has this limitation but ignores the fine meshes.
+    # LIMITATION 2: Only for one particle weight windows
+
+    # To Import ww file
+
+    # Line counter
+    L_COUNTER = 0
+
+    BLOCK_NO= 1 # This parameter define the BLOCK position in the file
+
+    # Variables for BLOCK No.1
+    B1_if = 0
+    B1_iv = 0
+    B1_ni = 0
+    B1_nr = 0
+    B1_ne = []  
+
+    # Variables for BLOCK No.2
+    B2_Iints = 0  # Number of bins in I (radius direction)
+    B2_Jints = 0  # Number of bins in J (axis direction) 
+    B2_Kints = 0  # Number of bins in K (polar direction)
+    B2_Icn  = 0    # Number of coarse meshes in I
+    B2_Jcn  = 0    # Number of coarse meshes in J
+    B2_Kcn  = 0    # Number of coarse meshes in K
+    B2_Origin = (0,0,0) # Central bottom point of the cylinder
+    B2_Final = (0,0,0) # Central top point of the cylinder
+    B2_ncx = 0 # Third line of B_2
+    B2_ncy = 0 # Third line of B_2
+    B2_ncz = 0 # Third line of B_2
+    
+    B2_X = False
+    B2_Y = False
+    B2_3 = False
+    vec_coarse = [[],[],[]]
+    vec_fine = [[],[],[]]
+    
+    # Variables for BLOCK No.3
+    B3_eb1 = []
+    B3_eb2 = []
+    inValues1 = False
+    inValues2 = False
+    
+    ww = [[],[]]
+    
+    nlines = 0 # For the bar progress
+    for line in open(InputFile).readlines(  ): nlines += 1
+    bar = tqdm(unit=' lines read',desc=' Reading file',total=nlines) 
+    # Function to load WW
+    with open(InputFile, "r") as infile:
+    
+        for line in infile:
+            if BLOCK_NO == 1:
+                if L_COUNTER==0:
+    
+                    info    = line[50:] 
+                    line    = line[:50]
+    
+                    split=line.split()
+                    
+                    B1_if = int(split[0])
+                    B1_iv = int(split[1])
+                    B1_ni = int(split[2])
+                    B1_nr = int(split[3])
+                    L_COUNTER += 1
+                    
+                elif L_COUNTER==1:
+                    split=line.split()
+    
+                    for item in split:
+                        B1_ne.append(item)
+
+                    L_COUNTER += 1
+                    BLOCK_NO=2  # TURN ON SWITCH FOR BLOCK No. 2    
+            
+            elif BLOCK_NO == 2:    
+                if L_COUNTER==2:
+                    split=line.split()
+                    B2_Iints = int(float(split[0]))
+                    B2_Jints = int(float(split[1]))
+                    B2_Kints = int(float(split[2]))
+                    B2_Origin = (float(split[3]),float(split[4]),float(split[5]))
+                    L_COUNTER += 1
+                    
+                elif L_COUNTER==3:
+                    split = line.split()
+                    B2_Icn  = int(float(split[0]))
+                    B2_Jcn  = int(float(split[1]))
+                    B2_Kcn  = int(float(split[2]))
+                    B2_Final = (float(split[3]),float(split[4]),float(split[5]))
+                    L_COUNTER += 1
+                    
+                elif L_COUNTER==4:
+                    split = line.split()
+                    B2_ncx = float(split[0])
+                    B2_ncy = float(split[1])
+                    B2_ncz = float(split[2])
+                    vec = (B2_ncx-B2_Origin[0],B2_ncy-B2_Origin[1],B2_ncz-B2_Origin[2])
+                    vec = vec/np.linalg.norm(vec)
+                    L_COUNTER += 1
+                    
+                    B2_X = True
+                    
+                    # Now we are be in the region of the coarse and fine meshes specification
+                    # For now I will consider only files with one coarse mesh
+                
+                elif B2_X:
+                    split=line.split()
+                    split = [float(i) for i in split]
+                    if len(split) == 4:
+                        if vec_coarse[0] == []:
+                            vec_coarse[0].append(split[0])                            
+                        vec_fine[0].append(split[1])
+                        vec_coarse[0].append(split[2])
+                    if len(split) == 6:
+                        if vec_coarse[0] == []:
+                            vec_coarse[0].append(split[0]) 
+                        vec_fine[0].append(split[1])
+                        vec_coarse[0].append(split[2])
+                        vec_fine[0].append(split[4])
+                        vec_coarse[0].append(split[5])                        
+                    if split[-1] == 1.0000 and len(split) != 6:
+                        B2_X = False
+                        B2_Y = True
+                elif B2_Y:
+                    split=line.split()
+                    split = [float(i) for i in split]
+                    if len(split) == 4:
+                        if vec_coarse[1] == []:
+                            vec_coarse[1].append(split[0])                            
+                        vec_fine[1].append(split[1])
+                        vec_coarse[1].append(split[2])
+                    if len(split) == 6:
+                        if vec_coarse[1] == []:
+                            vec_coarse[1].append(split[0])
+                        vec_fine[1].append(split[1])
+                        vec_coarse[1].append(split[2])
+                        vec_fine[1].append(split[4])
+                        vec_coarse[1].append(split[5])                        
+                    if split[-1] == 1.0000 and len(split) != 6:
+                        B2_Y = False
+                        B2_Z = True
+                        
+                            
+                elif B2_Z:
+                    split=line.split()
+                    split = [float(i) for i in split]
+                    if len(split) == 4:
+                        if vec_coarse[2] == []:
+                            vec_coarse[2].append(split[0])                            
+                        vec_fine[2].append(split[1])
+                        vec_coarse[2].append(split[2])
+                    if len(split) == 6:
+                        if vec_coarse[2] == []:
+                            vec_coarse[2].append(split[0])
+                        vec_fine[2].append(split[1])
+                        vec_coarse[2].append(split[2])
+                        vec_fine[2].append(split[4])
+                        vec_coarse[2].append(split[5])                        
+                    if split[-1] == 1.0000 and len(split) != 6:
+                        B2_Z = False
+                        BLOCK_NO   = 3  # TURN ON SWITCH FOR BLOCK No. 3
+
+                    nbins = float(B2_Iints) * float(B2_Jints) * float(B2_Kints)
+                    X = [vec_coarse[0][0]]
+                    for i in range(1,len(vec_coarse[0])):
+                        X = np.concatenate((X,np.linspace(X[-1],vec_coarse[0][i],vec_fine[0][i-1]+1)[1:]))
+                    B2_Xf = X[-1]
+                    
+                    Y = [vec_coarse[1][0]]
+                    for i in range(1,len(vec_coarse[1])):
+                        Y = np.concatenate((Y,np.linspace(Y[-1],vec_coarse[1][i],vec_fine[1][i-1]+1)[1:])) 
+                    B2_Yf = Y[-1]
+                    
+                    Z = [vec_coarse[2][0]]
+                    for i in range(1,len(vec_coarse[2])):
+                        Z = np.concatenate((Z,np.linspace(Z[-1],vec_coarse[2][i],vec_fine[2][i-1]+1)[1:]))
+                    B2_Zf = Z[-1]
+            
+            elif BLOCK_NO == 3:
+                if inValues1:
+                    for item in line.split():
+                        ww[0].append(float(item))
+                    if len(ww[0])==nbins*int(B1_ne[0]):
+                        inValues1 = False
+                elif inValues2:
+                    for item in line.split():
+                        ww[1].append(float(item))       
+                else:
+                    if len(ww[0])==0:
+                        if B3_eb1 == []:
+                            B3_eb1 = line.split()
+                        else:
+                            B3_eb1 = B3_eb1 + line.split()
+                        if len(B3_eb1)==int(B1_ne[0]):
+                            inValues1 = True
+                    else:
+                        if B3_eb2 == []:
+                            B3_eb2 = line.split()
+                        else:
+                            B3_eb2 = B3_eb2 + line.split()
+                        if len(B3_eb2)==int(B1_ne[1]):
+                            inValues2 = True
+            
+            bar.update()
+ 
+        bar.close()
+
+    axis = np.array(B2_Final) - np.array(B2_Origin)
+    rotAxis = np.cross(axis,[0,0,1])
+    if np.linalg.norm(rotAxis) == 0:
+        rotM = R.from_rotvec([0,0,0])
+    else:
+        rotAxis = rotAxis/np.linalg.norm(rotAxis)
+        ang = -np.arccos(np.dot(axis, [0,0,1]))
+        rotM = R.from_rotvec(rotAxis*ang)
+    
+    dict    = {'B1_if':B1_if,
+               'B1_iv':B1_iv,
+               'B1_ni':B1_ni,
+               'B1_nr':B1_nr,
+               'B1_ne':B1_ne,
+               'I':X, 'J':Y,
+               'K':Z,
+               'B2_Origin':B2_Origin,
+               'B2_Final':B2_Final,
+               'B2_Iints':B2_Iints,
+               'B2_Jints':B2_Jints,
+               'B2_Kints':B2_Kints,
+               'vec': vec,
+               'rotM': rotM,
+               'vec_coarse':vec_coarse,
+               'vec_fine':vec_fine}
+    
+    ww = ww_item_cyl(InputFile,X,Y,Z,nbins, ww, B3_eb1,B3_eb2,dict)          
+    return ww
+      
+class ww_item_cyl:
+    # Class constructor 
+    def __init__(self, filename, I, J, K, nbins, ww, B3_eb1, B3_eb2, dict):
+        #>>> ww_item properties
+        # - self.d    : dictionary
+        # - self.I    : I discretization vector cyl radius
+        # - self.J    : J discretization vector cyl axis
+        # - self.K    : K discretization vector cyl angle
+        # - self.name : filename
+        # - self.bins : No. of voxel per particle
+        # - self.eb1   : ww energy bin list         [[]|ParNo1
+        # --> @@@ Nested list of numpy array@@@
+        # - self.wwme : ww set numpy array         [[[k,j,i]e_i,[k,j,i]e_i+1, ....,,[k,j,i]e_n]|ParNo1,[[k,j,i]e_i,[k,j,i]e_i+1, ....,,[k,j,i]e_n ]|ParNo2]    
+        # - self.ratio: max ratio of voxel with nearby values (shape as self.wwme)
+        # - self.coord: states 'cyl' for cylindrical coordinates
+        # - self.zoneID: zoneID
+        # - self.par: number of particles
+        
+        self.zoneID = []
+        self.d  = dict
+        
+        self.coord = 'cyl'
+        
+        self.I  = I
+        self.J  = J
+        self.K  = K
+        
+        self.name=filename
+        
+        self.bins=nbins  
+                
+        self.ww = ww
+        self.eb1  = B3_eb1
+        self.eb2  = B3_eb2
+        self.eb12 = [self.eb1,self.eb2] 
+        
+        if len(self.eb1)==1:
+            self.wwme = np.array([np.array(ww[0]).reshape(self.d['B2_Kints'],self.d['B2_Jints'],self.d['B2_Iints'])])
+        else:
+            self.wwme = np.array(ww[0]).reshape(len(self.eb1),self.d['B2_Kints'],self.d['B2_Jints'],self.d['B2_Iints'])
+        
+        if len(self.eb2)==1:
+            self.par  = 2
+            self.wwme = [self.wwme, np.array([np.array(ww[1]).reshape(self.d['B2_Kints'],self.d['B2_Jints'],self.d['B2_Iints'])])]
+        elif len(self.eb2)>1:
+            self.par  = 2
+            self.wwme = [self.wwme, np.array(ww[1]).reshape(len(self.eb2),self.d['B2_Kints'],self.d['B2_Jints'],self.d['B2_Iints'])]
+        else:
+            self.wwme = [self.wwme,[]]
+            self.par  = 1
+        self.ratio = []
+        for p in range(len(self.d['B1_ne'])):
+            self.ratio.append([])
+            for e in range(len(self.eb1)):
+                self.ratio[p].append(np.ones((self.d['B2_Kints'],self.d['B2_Jints'],self.d['B2_Iints'])))
+
+    # Function to print the information of the ww 
+    def info(self):
+    
+        print ('\n The following WW file has been analysed:  '+self.name+'\n')
+    
+        Part_A='From'
+        Part_B='To' 
+        Part_C='No. Bins'
+    
+        print('{:>10}'.format('') + '\t'+Part_A.center(15,"-")+'\t'+Part_B.center(15,"-")+'\t'+Part_C.center(15,"-"))
+    
+        line_X='{:>10}'.format(' Radius -->')  +'\t'+ '{:^15}'.format('{:8.2f}'.format(self.I[0]))  +'\t'+ '{:^15}'.format('{:8.2f}'.format(self.I[-1])) +'\t'+ '{:^15}'.format(len(self.I)-1)  
+        line_Y='{:>10}'.format(' Height -->')  +'\t'+ '{:^15}'.format('{:8.2f}'.format(self.J[0]))  +'\t'+ '{:^15}'.format('{:8.2f}'.format(self.J[-1])) +'\t'+ '{:^15}'.format(len(self.J)-1) 
+        line_Z='{:>10}'.format(' Theta  -->')  +'\t'+ '{:^15}'.format('{:8.2f}'.format(self.K[0]))  +'\t'+ '{:^15}'.format('{:8.2f}'.format(self.K[-1])) +'\t'+ '{:^15}'.format(len(self.K)-1)  
+    
+        print (line_X)
+        print (line_Y)
+        print (line_Z)
+        print('\n The mesh coordinates are cylindrical.')
+        print('\n The file contain {0} particle/s and {1} voxels!'.format(len(self.d['B1_ne']),int(self.bins)*len(self.d['B1_ne'])))
+            
+
+        print('\n ***** Particle No.1 ****')
+        print(' Energy[{0}]: {1}\n\n'.format(len(self.eb1),self.eb1))
+        if len(self.d['B1_ne'])==2:
+    
+            print('\n ***** Particle No.2 ****')
+            print(' Energy[{0}]: {1}\n\n'.format(len(self.eb2),self.eb2))                
+    
+    # Function that applies a soft and a norm factor. It also does a hole-filling if there is a zoneID
+    def soft_cyl(self, zoneID):
+        flag = True
+        while flag:
+            soft = input(' Insert the softening factor: ')
+            if ISnumber(soft):
+                soft = float(soft)
+                flag = False
+            else: 
+                print(' Please insert a number!')
+                flag = True
+    
+        flag = True
+        while flag:
+            norm = input(' Insert the normalization factor: ')
+            if ISnumber(norm):
+                norm = float(norm)
+                flag = False
+            else: 
+                print(' Please insert a number!')
+                flag = True
+           
+        for p in range(len(self.d['B1_ne'])):
+            ww_mod=self.wwme[p]
+            if len(zoneID)>0: # Hole-filling
+                for g in range (int(self.d['B1_ne'][p])):
+                    z=[] # A 3d zoneID
+                    for i in range(len(zoneID)):
+                        z.append([])
+                        for m in range(len(self.J)-1):
+                            z[i].append(zoneID[i])
+                    while True: # For some unknown reason the fill operation when using cyl coordinates do not clear all the holes at once, several iterations are required
+                        holes = ww_mod[g]==0
+                        holes = holes*z
+                        holes=holes==1
+                        if len(np.argwhere(holes))==0:
+                            break
+                        ww_mod[g] = fill(ww_mod[g], holes)
+            
+            # Modification of wwme
+            for e in range(len(ww_mod)):
+                self.wwme[p][e]=np.power(ww_mod[e]*norm, soft)
+                
+            # Modification of ww
+            self.ww[p] = self.wwme[p].flatten()
+        return self
+    
+    # Function to add a ww set to the ww
+    def add(self):
+        flag = True
+        while flag:
+             soft = input(' Insert the softening factor: ')
+             if ISnumber(soft):
+                soft = float(soft)
+                flag = False
+             else: 
+                print(' Please insert a number!')
+                flag = True
+        
+        flag = True
+        while flag:
+             norm = input(' Insert the normalization factor: ')
+             if ISnumber(norm):
+                norm = float(norm)
+                flag = False
+             else: 
+                print(' Please insert a number!')
+                flag = True
+                
+  
+        ww_mod=self.wwme[0]
+        # Modification of wwme
+        for e in range(len(ww_mod)):
+            self.wwme[1].append(np.power(ww_mod[e]*norm, soft))
+        self.wwme[1] = np.array(self.wwme[1])
+
+        # Modification of ww
+        self.ww[1] = np.array(self.wwme[1]).flatten()
+        
+        self.eb2 = self.eb1
+        self.eb12 = [self.eb1,self.eb2]
+        self.par=2
+        
+        self.d['B1_ne'] = [self.d['B1_ne'][0],self.d['B1_ne'][0]]
+        
+        self.ratio.append(deepcopy(self.ratio[0]))
+        
+        return self
+
+    # Function to remove a ww set to the ww
+    def remove(self):
+        flag = True
+        while flag:
+             NoParticle = input(' Insert the weight windows set to remove[0,1]: ')
+             if ISnumber(NoParticle):
+                NoParticle = int(NoParticle)
+                flag = False
+             else: 
+                print(' Please insert a number!')
+                flag = True
+        
+        self.ww = [self.ww[NoParticle-1],[]]
+        self.wwme = [self.wwme[NoParticle-1],[]]
+        self.eb12 = [self.eb12[NoParticle-1],[]]
+        self.eb1 = self.eb12[0]
+        self.eb2 = []
+        self.par = 1
+        
+        self.par = 1
+        self.d['B1_ne'] = [self.d['B1_ne'][NoParticle-1]]
+        
+        self.ratio = [self.ratio[NoParticle-1]]
+        
+        return self
+        
+# On works            
+def plot_cyl(self,Jslice):
+    z = []
+    for k in range(len(self.K)-1):
+        m=[]
+        for i in range(len(self.I)-1):
+            m.append(float(self.wwme[0][k][Jslice][i]))
+        z.append(m)
+    fig = plt.figure()
+    ax = Axes3D(fig)
+    rad = self.I
+    azm = [a*2*np.pi for a in self.K]
+    r, th = np.meshgrid(rad, azm)    
+    plt.subplot(projection="polar")
+    plt.pcolormesh(th, r, z)
+    plt.plot(azm, r, color='k', ls='none')
+    plt.thetagrids([x*360/(2*np.pi) for x in azm])
+    plt.rgrids(rad)
+    plt.grid()
+    plt.show()
+   
+def zoneDEF_cyl(self, option,flag=False): # Set flag to True to produce a vtk file with the zoneID
+    if option == 'all':
+        zoneID = np.ones((len(self.K)-1,len(self.I)-1))
+    if option == 'auto':
+        zoneID = np.zeros((len(self.K)-1,len(self.I)-1))
+        non_zero_index = []
+        for p in range(len(self.d['B1_ne'])):
+            nz = [(i[1],i[3]) for i in np.argwhere(self.wwme[p])] # creates a list of indices of j,i if there is a non-zero value 
+            non_zero_index = non_zero_index + nz 
+        non_zero_index = np.unique(non_zero_index,axis=0)        # deletes repeated indices
+        
+        for k, i in non_zero_index:
+            zoneID[k][i] = 1
+        for Ivec in zoneID: # Hole filling in I direction: it fills all space between 1s in the I direction of each K slice
+            pos0,pos1 = np.argwhere(Ivec>0)[0],np.argwhere(Ivec>0)[-1]
+            for i in range(pos0[0],pos1[0]):
+                Ivec[i]=1
+    factor = sum (sum(zoneID))/ (int(self.wwme[0][0].shape[0]*self.wwme[0][0].shape[2]))
+    if flag:
+        copy = deepcopy(self)
+        copy.name = copy.name+'ZONEID'
+        z=[] # A 3d zoneID
+        for i in range(len(zoneID)):
+            z.append([])
+            for m in range(len(self.J)-1):
+                z[i].append(zoneID[i])
+        copy.wwme = []
+        for p in range(len(self.d['B1_ne'])):
+            copy.wwme.append([])
+            for e in range(int(self.d['B1_ne'][p])):
+                copy.wwme[p].append(z)
+        writeVTK_cyl(copy)
+    return zoneID,factor
+
+# Modifies self.ratio having into account a cylindrical coordinate system, k[-1] is next to k[0].    
+def analyse_cyl(self,zoneID):
+    
+    RATIO_EVA = []
+    
+    z=[] # A 3d zoneID 
+    for i in range(len(zoneID)):
+        z.append([])
+        for m in range(len(self.J)-1):
+            z[i].append(zoneID[i])
+    z = np.array(z)
+     
+    for p in range(len(self.d['B1_ne'])):
+        posBins = []
+        ww_neg = False
+        for e in range(int(self.d['B1_ne'][p])):
+            posBins.append(len(np.argwhere(self.wwme[p][e]*z>0))/len(np.argwhere(z>0)))
+            if np.argwhere(self.wwme[p]<0).size>0:
+                ww_neg = True
+            extM = extend_matrix_cyl(self.wwme[p][e])
+            bar = tqdm(unit=' K slices',desc=' Analysing',total=len(self.K)-1)
+            for k in range(len(self.K)-1):
+                for j in range(1,len(self.J)):
+                    for i in range(1,len(self.I)):
+                        if (extM[k,j,i]>0):
+                            neig = [x for x in ([extM[k+1,j,i],extM[k-1,j,i],extM[k,j+1,i],extM[k,j-1,i], extM[k,j,i+1], extM[k,j,i-1]]) if x>0]
+                            if len(neig)>0:
+                                self.ratio[p][e][k,j-1,i-1] = max(neig)/extM[k,j,i]
+                bar.update()
+            bar.close()
+            
+        RATIO_EVA.append([[e.max() for e in self.ratio[p]],sum(posBins)/int(self.d['B1_ne'][p]),ww_neg])
+        
+        # To create the ratio histogram analysis
+        for e in range (int(self.d['B1_ne'][p])):
+            font = {'family': 'serif',
+                    'color':  'darkred',
+                    'weight': 'normal',
+                    'size': 16}                        
+            x_axis = np.logspace(0, 6, num=21)
+            y_axis = []
+        
+            for i in range (0,len(x_axis)-1):
+                y_axis.append(len(np.where(np.logical_and(self.ratio[p][e]>=x_axis[i], self.ratio[p][e]<x_axis[i+1]))[0]))
+            
+            fig, ax = plt.subplots()
+            ax.bar(x_axis[:-1], y_axis, width=np.diff(x_axis),log=True,ec="k", align="edge")
+            ax.set_xscale("log")
+            plt.xlabel('max ratio with nearby cells', fontdict=font)
+            plt.ylabel('No.bins', fontdict=font)
+            plt.title (self.name+'_ParNo.'+str(p+1)+'_'+'E'+'='+str(self.eb12[p][e])+'MeV', fontdict=font)
+            # Tweak spacing to prevent clipping of ylabel
+            plt.subplots_adjust(left=0.15)
+            fig.savefig(self.name+'_ParNo.'+str(p+1)+'_'+'E'+'='+str(self.eb12[p][e])+'MeV'+'_Ratio_Analysis.jpg')
+        
+        # Print in screen the ww analysis
+        print ('\n The following WW file has been analysed:  '+self.name)    
+        title = 'Par.No ' + str(p+1)
+        print('\n '+title.center(40,"-")+'\n')    
+        print(' Min Value       : ' + str(min(self.ww[p])))
+        print(' Max Value       : ' + str(max(self.ww[p])))
+        print(' Max Ratio       : ' + str(max(RATIO_EVA[p][0])))
+        print(' No.Bins>0 [%]   : ' + str(RATIO_EVA[p][1]*100))
+        print(' Neg.Value       : ' + str(RATIO_EVA[p][2]) )
+        print(' '+'-'*40+'\n')
+    
+def extend_matrix_cyl(matrix): #extends a matrix in both senses for J and I and only in one sense in K
+    newM = np.zeros((matrix.shape[0]+1,matrix.shape[1]+2,matrix.shape[2]+2))
+    newM[:-1, 1:-1, 1:-1] = matrix # This way the K[-1] will be k[0] and not a zero value
+    newM[-1] = newM[-2]
+    return newM  
+    
+def makeVTKarray(self):
+    from vtk.util import numpy_support
+    # The array should have the order: k,i,j
+    arrays = []
+    for p in range(len(self.d['B1_ne'])):
+        for e in range(int(self.d['B1_ne'][p])):
+            arr = []
+            ww = self.wwme[p][e]
+            for j in range(len(self.J)-1):
+                for i in range(len(self.I)-1):
+                    for k in range(len(self.K)-1):
+                        arr.append(ww[k][j][i])
+            vtkarr = numpy_support.numpy_to_vtk( arr, deep=True, array_type=vtk.VTK_DOUBLE )
+            vtkarr.SetName('Par '+str(p+1)+' - '+str(self.eb12[p][e])+'MeV')
+            arrays.append(vtkarr)
+    
+    if max([e.max() for e in self.ratio[0]]) != 1: # To be improved just to check if matrix is all one.
+        for p in range(len(self.ratio)):
+            maxratio = np.ones(np.shape(self.ratio[0][0]))
+            oratio = np.array(self.ratio)
+            for k in range(len(self.K)-1):
+                for j in range(len(self.J)-1):
+                    for i in range(len(self.I)-1):
+                        maxratio[k][j][i] = max(oratio[p,...,k,j,i])
+            arr = []
+            for j in range(len(self.J)-1):
+                for i in range(len(self.I)-1):
+                    for k in range(len(self.K)-1):
+                        arr.append(maxratio[k][j][i])       
+            vtkarr = numpy_support.numpy_to_vtk( arr, deep=True, array_type=vtk.VTK_DOUBLE )
+            vtkarr.SetName('Par '+str(p+1)+' - '+'RATIO')
+            arrays.append(vtkarr)
+    return arrays    
+
+# Limitation: the vtk will be written as if the cylinder were had a vertical axis (0 0 1)
+# If the cylinder has an arbitrary axis the plot will be correct but rotated to a vertical axis
+# Surely to overcome this limitation a rotation matrix should be calculated from orgin and final points
+# and this matrix should be applied every time a point is written to the vtk array.     
+def writeVTK_cyl(self):    
+    colors = vtk.vtkNamedColors()
+    dims = [len(self.K),len(self.I),len(self.J)]
+    # Create the structured grid.
+    sgrid = vtk.vtkStructuredGrid()
+    sgrid.SetDimensions(dims)
+    points = vtk.vtkPoints()
+    points.Allocate(dims[0] * dims[1] * dims[2])
+    p = [0.,0.,0.]
+    vec = self.d['B2_Origin']
+    ps = []
+    bar = tqdm(unit=' J slices',desc=' Writing',total=len(self.J))
+    for j in self.J:
+        for i in self.I:
+            for k in self.K:
+                theta = k * 2 * np.pi
+                p[0] = i * np.cos(theta)
+                p[1] = i * np.sin(theta)
+                p[2] = j
+                ps.append((i * np.cos(theta),i * np.sin(theta),j))           
+                          
+        bar.update()
+    bar.close()
+    ps = self.d['rotM'].apply(ps)
+    ps = np.array(ps) + vec
+    for p in range(len(ps)):
+        points.InsertPoint(p, ps[p])
+    
+    sgrid.SetPoints(points)
+    cellData = sgrid.GetCellData()
+    
+    
+    for vtkarr in makeVTKarray(self):
+        try:
+            cellData.AddArray(vtkarr)
+        except:
+            print(' cannot input array')
+    
+    writer = vtk.vtkXMLStructuredGridWriter()
+    writer.SetInputData(sgrid)
+    writer.SetFileName(self.name+'.vts')
+    writer.SetDataModeToAscii()
+    writer.Update()
+
+def writeWWINP_cyl(ww):
+    outputFile = ww.name+'_2write'
+    with open(outputFile,'w') as outfile:
+        line_A='{:>10}'.format('{:.0f}'.format(ww.d['B1_if']))
+        line_B='{:>10}'.format('{:.0f}'.format(ww.d['B1_iv']))
+        line_C='{:>10}'.format('{:.0f}'.format(ww.d['B1_ni'])) 
+        line_D='{:>10}'.format('{:.0f}'.format(ww.d['B1_nr']))  
+        outfile.write(line_A+line_B+line_C+line_D+'\n')
+        
+        line_A = '{:>10}'.format('{:.0f}'.format(float(ww.d['B1_ne'][0])))
+        if len(ww.d['B1_ne'])==2:
+            line_A = line_A + '{:>10}'.format('{:.0f}'.format(float(ww.d['B1_ne'][1])))
+        outfile.write(line_A+'\n')
+        
+        line_A= '{:>9}'.format('{:.2f}'.format(len(ww.I)-1))
+        line_B='{:>13}'.format('{:.2f}'.format(len(ww.J)-1))
+        line_C='{:>13}'.format('{:.2f}'.format(len(ww.K)-1))
+        line_D='{:>13}'.format('{:.2f}'.format(ww.d['B2_Origin'][0]))
+        line_E='{:>13}'.format('{:.2f}'.format(ww.d['B2_Origin'][1]))
+        line_F='{:>12}'.format('{:.2f}'.format(ww.d['B2_Origin'][2]))
+        outfile.write(line_A+line_B+line_C+line_D+line_E+line_F+'    \n')
+    
+        line_A= '{:>9}'.format('{:.2f}'.format(len(ww.d['vec_coarse'][0])-1))
+        line_B='{:>13}'.format('{:.2f}'.format(len(ww.d['vec_coarse'][1])-1))
+        line_C='{:>13}'.format('{:.2f}'.format(len(ww.d['vec_coarse'][2])-1))
+        line_D='{:>13}'.format('{:.2f}'.format(ww.d['B2_Final'][0]))
+        line_E='{:>13}'.format('{:.2f}'.format(ww.d['B2_Final'][1]))
+        line_F='{:>12}'.format('{:.2f}'.format(ww.d['B2_Final'][2]))
+        outfile.write(line_A+line_B+line_C+line_D+line_E+line_F+'    \n')
+        
+        line_A= '{:>9}'.format('{:.2f}'.format(ww.d['B2_Origin'][0]+ww.I[-1]*ww.d['vec'][0]))
+        line_B='{:>13}'.format('{:.2f}'.format(ww.d['B2_Origin'][1]+ww.I[-1]*ww.d['vec'][1]))
+        line_C='{:>13}'.format('{:.2f}'.format(ww.d['B2_Origin'][2]+ww.I[-1]*ww.d['vec'][2])) 
+        line_D='{:>13}'.format('{:.2f}'.format(2))
+        outfile.write(line_A+line_B+line_C+line_D+'    \n')
+        
+        l=[]
+        for i in range(len(ww.d['vec_coarse'][0])):
+            l.append(ww.d['vec_coarse'][0][i])
+            try:
+                l.append(ww.d['vec_fine'][0][i])
+            except:
+                pass
+        s = ''
+        
+        for i in l:
+            s = s + ' {: 1.5e}'.format(i)
+            if len(s.split()) == 6:
+                outfile.write(s+'\n')
+                s = ' {: 1.5e}'.format(1)
+            if len(s.split()) == 3:
+                s = s +' {: 1.5e}'.format(1)
+        outfile.write(s+'\n')
+    
+        l=[]
+        for i in range(len(ww.d['vec_coarse'][1])):
+            l.append(ww.d['vec_coarse'][1][i])
+            try:
+                l.append(ww.d['vec_fine'][1][i])
+            except:
+                pass
+        s = ''
+        
+        for i in l:
+            s = s + ' {: 1.5e}'.format(i)
+            if len(s.split()) == 6:
+                outfile.write(s+'\n')
+                s = ' {: 1.5e}'.format(1)
+            if len(s.split()) == 3:
+                s = s +' {: 1.5e}'.format(1)
+        outfile.write(s+'\n')
+    
+        l=[]
+        for i in range(len(ww.d['vec_coarse'][2])):
+            l.append(ww.d['vec_coarse'][2][i])
+            try:
+                l.append(ww.d['vec_fine'][2][i])
+            except:
+                pass
+        s = ''
+        
+        for i in l:
+            s = s + ' {: 1.5e}'.format(i)
+            if len(s.split()) == 6:
+                outfile.write(s+'\n')
+                s = ' {: 1.5e}'.format(1)
+            if len(s.split()) == 3:
+                s = s +' {: 1.5e}'.format(1)
+        outfile.write(s+'\n')
+        
+        s = ''
+        for e in ww.eb1:
+            s = s + ' {: 1.5e}'.format(float(e))
+            if len(s.split()) == 6:
+                outfile.write(s+'    \n')
+                s = ''
+        if len(s)>0:
+            outfile.write(s+'    \n')
+        
+        bar = tqdm(unit=' words',desc=' Writing p1',total=len(ww.ww[0]))
+        s=''
+        for i in ww.ww[0]:
+            bar.update()
+            s = s + ' {: 1.5e}'.format(float(i))
+            if len(s.split()) == 6:
+                outfile.write(s+'    \n')
+                s = ''
+        bar.close()
+        if len(s)>0:
+            outfile.write(s+'    \n')
+        
+        if len(ww.d['B1_ne']) == 2:
+            s = ''
+            for e in ww.eb2:
+                s = s + ' {: 1.5e}'.format(float(e))
+                if len(s.split()) == 6:
+                    outfile.write(s+'    \n')
+                    s = ''
+            if len(s)>0:
+                outfile.write(s+'    \n')
+            
+            bar = tqdm(unit=' words',desc=' Writing p2',total=len(ww.ww[1]))
+            s=''
+            for i in ww.ww[1]:
+                bar.update()
+                s = s + ' {: 1.5e}'.format(float(i))
+                if len(s.split()) == 6:
+                    outfile.write(s+'    \n')
+                    s = ''
+            bar.close()
+            if len(s)>0:
+                outfile.write(s+'    \n')
+        
+def gvr_soft_cyl(m,mesh,gvrname):
+    
+    K = m.dims[1]
+    J = m.dims[2] 
+    I = m.dims[3] 
+    vec_coarse = [I,J,K] # We build the vec_coarse and fine as if there are no fine meshes, all meshes are coarse with only 1 interval
+    vec_fine = [[1 for i in range(len(vec_coarse[0])-1)],[1 for i in range(len(vec_coarse[1])-1)],[1 for i in range(len(vec_coarse[2])-1)]]
+    nbins = (len(I)-1)*(len(J)-1)*(len(K)-1)
+    nPar = 1
+    eb = [100]
+    m.readMCNP(mesh.f)
+    ww = [m.dat.flatten(),[]]
+
+    origin = [m.origin[3],m.origin[2],m.origin[1]]
+    height = m.dims[2][-1]
+    vec = m.axis*height
+    B2_Final = origin+vec
+    
+    rotAxis = np.cross(vec,[0,0,1])
+    if np.linalg.norm(rotAxis) == 0:
+        rotM = R.from_rotvec([0,0,0])
+    else:
+        rotAxis = rotAxis/np.linalg.norm(rotAxis)
+        ang = -np.arccos(np.dot(vec, [0,0,1]))
+        rotM = R.from_rotvec(rotAxis*ang)
+    
+    B3_eb1 = m.dims[0][1:]
+    B3_eb2 = []
+    
+    if m.vec is None: # For MCNP5 Meshtals there is no info about vec 
+        if m.axis[0]!=1:
+            m.vec = [1,0,0] # Default VEC in MCNP
+        else:
+            m.vec = [0,1,0]
+        
+    dict    = {'B1_if':1,
+               'B1_iv':1,
+               'B1_ni':1,
+               'B1_nr':16,
+               'B1_ne':['1'],
+               'I':I,
+               'J':J,
+               'K':K,
+               'B2_Origin':origin,
+               'B2_Final':B2_Final,
+               'B2_Iints':len(m.dims[3])-1,
+               'B2_Jints':len(m.dims[2])-1,
+               'B2_Kints':len(m.dims[1])-1,
+               'rotM':rotM,
+               'vec':m.vec,
+               'vec_coarse':vec_coarse,
+               'vec_fine':vec_fine}
+    gvr = ww_item_cyl(gvrname,I,J,K,nbins, ww, B3_eb1, B3_eb2, dict) # A ww skeleton is generated with the info from the mesh file
+    return gvr
+    
+
+
+# Mitigates long histories problems  
+def mitigate_cyl(self, maxratio):
+    for p in range(len(self.d['B1_ne'])):
+        for e in range(int(self.d['B1_ne'][p])):
+            iterations = 0
+            while len(np.argwhere(self.ratio[p][e]>=maxratio))>0:
+                iterations += 1
+                idxs = np.argwhere(self.ratio[p][e]>=maxratio)
+                print(' Found these many values with a ratio higher than the maximum: ',len(idxs))
+                for idx in idxs:
+                    extM = extend_matrix_cyl(self.wwme[p][e])
+                    neig = [extM[idx[0]-1,idx[1]+1,idx[2]+1],
+                            extM[idx[0]+1,idx[1]+1,idx[2]+1],
+                            extM[idx[0]+0,idx[1]+0,idx[2]+1],
+                            extM[idx[0]+0,idx[1]+2,idx[2]+1], 
+                            extM[idx[0]+0,idx[1]+1,idx[2]+0],
+                            extM[idx[0]+0,idx[1]+1,idx[2]+2]]
+                    neig = [x for x in neig if x>0]
+                    self.wwme[p][e][tuple(idx)] = (max(neig))/(maxratio*0.9) # Reduce the ww value to one right below the maxim ratio allowed
+                    self.ratio[p][e][tuple(idx)] = max(neig)/self.wwme[p][e][tuple(idx)]
+                if iterations > 5:
+                    print(' Maximum number of iterations reached')
+                    print(' The difference of value between certain voxels is too high to reduce the ratio below the specified max ratio')
+                    break
+        # Modification of ww
+        self.ww[p] = self.wwme[p].flatten()
+
+
 #######################################
 ####     Selections Menu           ####
 #######################################
@@ -1511,7 +2491,6 @@ operate_menu="""
  * Mitigate long histories   (mit)
  * Add                       (add)
  * Remove                    (rem)
- * Flipping                  (flip) >> To be completed
  * Exit                      (end)
 """
 
@@ -1528,17 +2507,26 @@ def main():
         if ans == 'open' :
             if len(wwfiles) == 0:
                 fname  = enterfilename(optname,wwfiles)
-                ww_out = load(fname)
+                with open(fname,'r') as infile:
+                    split = infile.readline().split()
+                if split[3] == '16':
+                    ww_out = load_cyl(fname)
+                else:
+                    ww_out = load(fname)
                 
                 wwfiles.append(fname)
                 wwdata.append(ww_out)
             else:
                 fname  = enterfilename(optname,wwfiles)
+                with open(fname,'r') as infile:
+                    split = infile.readline().split()
+                if split[3] == '16':
+                    ww_out = load_cyl(fname)
+                else:
+                    ww_out =load(wwfiles[-1])
+   
                 wwfiles.append(fname)
-                
-                ww_out =load(wwfiles[-1])
                 wwdata.append(ww_out)
-                
                 # print(wwfiles)
                 
         # Print ww information
@@ -1557,10 +2545,16 @@ def main():
         # Plot the ww
         elif ans == 'plot' :
             if len(wwfiles) == 1:
-                plot(wwdata[-1])
+                if wwdata[-1].coord == 'cyl':
+                    print(' Plot for cylindrical coordinates not available')
+                else:
+                    plot(wwdata[-1])
             else:
                 index  = selectfile(wwfiles)
-                plot(wwdata[index])
+                if wwdata[index].coord == 'cyl':
+                    print(' Plot for cylindrical coordinates not available')
+                else:
+                    plot(wwdata[index])
             
             # print(wwfiles)
        
@@ -1570,48 +2564,61 @@ def main():
                 index  = 0
             else:
                 index  = selectfile(wwfiles)
-            
-            if not wwdata[index].degree:
-                while True:
-                    degree = input(" Insert the toroidal coverage of the model [degree, all, auto]: ")
+            if wwdata[index].coord == 'cart':
+                if not wwdata[index].degree:
+                    while True:
+                        degree = input(" Insert the toroidal coverage of the model [degree, all, auto]: ")
+                        
+                        if degree.isdigit():
+                            degree = float(degree)/2
+                            break
+                        elif degree == 'all':
+                            break
+                        elif degree == 'auto':
+                            break
+                        else:
+                            print(' Please insert one of the options!')
                     
-                    if degree.isdigit():
-                        degree = float(degree)/2
-                        break
-                    elif degree == 'all':
-                        break
-                    elif degree == 'auto':
-                        break
-                    else:
-                        print(' Please insert one of the options!')
+                    zoneID, factor = zoneDEF(wwdata[index],degree)        
+                    
+                    wwdata[index].degree.append(zoneID)
+                    wwdata[index].degree.append(factor)            
+                else:
+                    zoneID = wwdata[index].degree[0]
+                    factor = wwdata[index].degree[1]
                 
-                zoneID, factor = zoneDEF(wwdata[index],degree)        
-                
-                wwdata[index].degree.append(zoneID)
-                wwdata[index].degree.append(factor)            
-            else:
-                zoneID = wwdata[index].degree[0]
-                factor = wwdata[index].degree[1]
-            
-            wwdata[index], RATIO_EVA = analyse(wwdata[index],zoneID, factor)
+                wwdata[index], RATIO_EVA = analyse(wwdata[index],zoneID, factor)
             # analyse(wwdata[index],zoneID, factor)
+            
+            elif wwdata[index].coord == 'cyl':
+                if wwdata[index].zoneID == []:
+                    while True:
+                        option = input(' Please select an option for the problem geometry [all, auto]: ')
+                        if option == 'all' or option == 'auto':
+                            break
+                        else:
+                            print(' Not a valid option')
+                    zoneID, factor = zoneDEF_cyl(wwdata[index],option)
+                    wwdata[index].zoneID = zoneID
+                analyse_cyl(wwdata[index],wwdata[index].zoneID)
         
         # Export the ww
-        elif ans == 'write'   :
+        elif ans == 'write':
             clear_screen()
             if len(wwfiles) == 1:
                 index  = 0
             else:
                 index  = selectfile(wwfiles)
-            
             write(wwdata,wwfiles,index)
         
         # Generate GVR
         elif ans == 'gvr':
             if len(wwfiles) == 0:
                 fname  = input(' Please write the name of the resulting GVR: ')
+
+
                 ww_out = gvr_soft(fname)
-                
+
                 wwfiles.append(fname)
                 wwdata.append(ww_out)
             else:
