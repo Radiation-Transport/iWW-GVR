@@ -3,7 +3,7 @@
 The tool is a python 3.6 based script able to generate global variance reductions weight window (WW) using any mesh format in meshtally by D1SUNED, MCNP5 or MCNP6. Mesh format includes usual MCNP column or matrix format and also specific D1SUNED format including cell or isotope contribution binning and source mesh importance format. Only Cartesian can be read. The tool incorporates also simple functions to operate with weight windows (e.g., analyse, add and remove WW set, write, plot).
 
 
-BUILDING A NEW VERSION:
+## BUILDING A NEW VERSION:
 1. Install proper tools, from command line execute:
 
 	> python -m pip install --user --upgrade setuptools wheel
@@ -19,7 +19,7 @@ BUILDING A NEW VERSION:
 	
 
 	
-INSTALLATION/UPDATING:
+## INSTALLATION/UPDATING:
 Enter in iww_gvr/dist folder:
 	
 	> pip install iww_gvr-<version>.tar.gz --user
@@ -27,6 +27,13 @@ Enter in iww_gvr/dist folder:
 The correspondent version of iww_gvr will be installed and the libraries copied into Pyhton36/site-packages the folder.
 Please be aware that the content of the iww_gvr/iww_gvr is neither updated nor modified by the installation.
 	
-GENERAL EXECUTION:
+## GENERAL EXECUTION:
 
 	> python -m iww_gvr
+    
+    
+## License
+Copyright 2019 F4E | European Joint Undertaking for ITER and the Development of Fusion Energy (‘Fusion for Energy’). Licensed under the EUPL, Version 1.1 or - as soon they will be approved by the European Commission - subsequent versions of the EUPL (the “Licence”). You may not use this work except in compliance with the Licence. You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl.html   
+Unless required by applicable law or agreed to in writing, software distributed under the Licence is distributed on an “AS IS” basis, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the Licence permissions and limitations under the Licence.
+
+   
