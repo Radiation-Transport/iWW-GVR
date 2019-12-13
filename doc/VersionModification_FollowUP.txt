@@ -15,3 +15,5 @@ Version     Date            Comment/Changes
                             * Documentation updated
                             * Verification expanded
 --------------------------------------------------------------------------------
+1.1.6       2019-12-13      * License statement updated
+--------------------------------------------------------------------------------
