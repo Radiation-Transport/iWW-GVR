@@ -411,8 +411,14 @@ def load(InputFile):
 
                     for item in split:
                         B1_ne.append(item)
-
-                    if (B1_ni == 2) and (int(B1_ne[0])==0): 
+                    
+                    # Modification for only neutron WW created by Advantge 
+                    if (B1_ni == 2) and (int(B1_ne[1])==0): 
+                        B2_par= False   
+                        B1_ni = 1      
+                        B1_ne=B1_ne[:1]                    
+                    # Modification for only Photon WW
+                    elif (B1_ni == 2) and (int(B1_ne[0])==0): 
                         B2_par= True   # ww2 set imposed in the ww1 position *** only photon case ***
                         B1_ni = 1      # As if only set was contained
                         B1_ne[0]=B1_ne[1]
@@ -751,6 +757,12 @@ def write(wwdata,wwfiles,index):
                             # print(type(item))
                             # print(item)
                             value    = float(item)
+                            
+                            # To avoid MCNP fatal error dealing with WW bins with more than 2 exponentials
+                            if value >= 1e+100:
+                                value = 9.99e+99
+                                print('***warning: WW value >= 1e+100 reduced to 9.99e+99!***')
+                                
                             if  jj<5: 
                                 line_new='{:>13}'.format('{:.4e}'.format(value))
                                 outfile.write(line_new)
@@ -1671,6 +1683,20 @@ def load_cyl(InputFile):
                     for item in split:
                         B1_ne.append(item)
 
+                    # Modification for only neutron WW created by Advantge 
+                    if (B1_ni == 2) and (int(B1_ne[1])==0): 
+                        B2_par= False   
+                        B1_ni = 1      
+                        B1_ne=B1_ne[:1]                    
+                    # Modification for only photon WW
+                    elif (B1_ni == 2) and (int(B1_ne[0])==0): 
+                        B2_par= True   # ww2 set imposed in the ww1 position *** only photon case ***
+                        B1_ni = 1      # As if only set was contained
+                        B1_ne[0]=B1_ne[1]
+                        del      B1_ne[1]
+                    else:
+                        B2_par=False  # ww2 set imposed in the ww2 position
+                                         
                     L_COUNTER += 1
                     BLOCK_NO=2  # TURN ON SWITCH FOR BLOCK No. 2    
             
@@ -2348,7 +2374,14 @@ def writeWWINP_cyl(ww):
         s=''
         for i in ww.ww[0]:
             bar.update()
-            s = s + ' {: 1.5e}'.format(float(i))
+            value = float(i)
+            
+            # To avoid MCNP fatal error dealing with WW bins with more than 2 exponentials
+            if value >= 1e+100:
+                value = 9.99e+99
+                print('***warning: WW value >= 1e+100 reduced to 9.99e+99!***')
+                                
+            s = s + ' {: 1.5e}'.format(value)
             if len(s.split()) == 6:
                 outfile.write(s+'    \n')
                 s = ''
@@ -2370,7 +2403,14 @@ def writeWWINP_cyl(ww):
             s=''
             for i in ww.ww[1]:
                 bar.update()
-                s = s + ' {: 1.5e}'.format(float(i))
+                value = float(i)
+            
+                # To avoid MCNP fatal error dealing with WW bins with more than 2 exponentials
+                if value >= 1e+100:
+                    value = 9.99e+99
+                    print('***warning: WW value >= 1e+100 reduced to 9.99e+99!***')
+                
+                s = s + ' {: 1.5e}'.format(value)
                 if len(s.split()) == 6:
                     outfile.write(s+'    \n')
                     s = ''

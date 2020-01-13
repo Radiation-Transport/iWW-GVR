@@ -7,4 +7,4 @@
 #    Y -- minor version. New minor version, when new function(s) added.
 #
 #    Z -- update, new update number when a bug is fixed.
-__version__ = '1.1.6'
+__version__ = '1.1.7'

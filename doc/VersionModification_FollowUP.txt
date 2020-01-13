@@ -17,3 +17,10 @@ Version     Date            Comment/Changes
 --------------------------------------------------------------------------------
 1.1.6       2019-12-13      * License statement updated
 --------------------------------------------------------------------------------
+1.1.7       2020-01-13      * Possibility to deal with neutron only ADVANTG WW 
+                              added both in REC and CYL WW
+                            * Possibility to deal with photon only ADVANTG WW 
+                              added both in CYL WW
+                            * Warning and modification for WW values >= 1e+100
+                              introduced
+--------------------------------------------------------------------------------
