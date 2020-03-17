@@ -1348,8 +1348,50 @@ def operate():
         index  = 0
     else:
         index  = selectfile(wwfiles)
-       
-    if   ans == 'soft':
+    
+    if ans == 'soft2':
+        while True:
+            HF = input(' Hole Filling approach [Yes, No]: ')
+            if HF =='Yes' or HF =='No' : break
+        copy = deepcopy(wwdata[index])
+        if HF == 'Yes':
+            if wwdata[index].coord == 'cyl':
+                while True:
+                    option = input(' Please select an option for the problem geometry [all, auto]: ')
+                    if option == 'all' or option == 'auto':
+                        break
+                    else:
+                        print(' Not a valid option')
+                zoneID,factor = zoneDEF_cyl(copy,option)
+
+            elif wwdata[index].coord == 'cart':
+                if not wwdata[index].degree:
+                    while True:
+                        degree = input(" Insert the toroidal coverage of the model [degree, all, auto]: ")
+                        
+                        if degree.isdigit():
+                            degree = float(degree)/2
+                            break
+                        elif degree == 'all':
+                            break
+                        elif degree == 'auto':
+                            break
+                        else:
+                            print(' Please insert one of the options!')
+                    zoneID, factor = zoneDEF(wwdata[index],degree)
+                    wwdata[index].degree.append(zoneID)
+                    wwdata[index].degree.append(factor)
+                else:
+                    zoneID = wwdata[index].degree[0]
+                    factor = wwdata[index].degree[1]
+        else:
+            zoneID = []
+        
+        ww_out = copy.biased_soft(zoneID)
+        ww_out.name = fname
+        flag   = True
+        
+    elif   ans == 'soft':
         if wwdata[index].coord == 'cyl':
             while True:
                 HF = input(' Hole Filling approach [Yes, No]: ')
@@ -1468,7 +1510,7 @@ def operate():
 def answer_loop(menu):
     pkeys = ['open','info','write','analyse','plot','operate','end','gvr']
     wkeys = ['wwinp','vtk','end']
-    okeys = ['add','rem','soft','mit','end']
+    okeys = ['add','rem','soft','soft2','mit','end']
     menulist = {'principal':pkeys, 'write':wkeys, 'operate':okeys}  
     while True:
         ans = input(" enter action :")
@@ -1946,6 +1988,148 @@ class ww_item_cyl:
     
             print('\n ***** Particle No.2 ****')
             print(' Energy[{0}]: {1}\n\n'.format(len(self.eb2),self.eb2))                
+    
+    # This function is repeated for both types of coordinates    
+    def biased_soft(self, zoneID):
+        '''
+        This function is analogue to the soft function but it modifies the value
+        of the softening of each voxel depending on the square of the distance to 
+        a focus point.
+        '''
+        if   self.par  == 2:
+            flag = True
+            while flag:
+                 NoParticle = input(' Insert the No.Particle to modify[0,1]: ')
+                 if NoParticle == '0' or NoParticle == '1':
+                    NoParticle = int(NoParticle)
+                    flag = False
+                 else: 
+                    print(' Please insert 0 or 1!')
+                    flag = True
+        else:
+            NoParticle = int(0)
+        flag = True
+        while flag:
+             soft_min = input(' Insert the minimum softening factor: ')
+             if ISnumber(soft_min):
+                soft_min = float(soft_min)
+                flag = False
+             else: 
+                print(' Please insert a number!')
+                flag = True
+        flag = True
+        while flag:
+             soft_max = input(' Insert the maximum softening factor: ')
+             if ISnumber(soft_max):
+                soft_max = float(soft_max)
+                flag = False
+             else: 
+                print(' Please insert a number!')
+                flag = True
+        flag = True
+        while flag:
+             focus = input(' Insert the focus point(ex: 2 32.2 12): ')
+             try:
+                 focus = [float(x) for x in focus.split()]
+                 flag = False
+             except: 
+                print(' Please insert the point!')
+                flag = True
+        
+        dist_matrix = [] #This has the same shape as wwme k,j,i
+        # Vectors containing the mid position for each interval are generated
+        if self.coord == 'cart':
+            Z = [(self.Z[i]+self.Z[i+1])/2 for i in range(len(self.Z)-1)]
+            Y = [(self.Y[i]+self.Y[i+1])/2 for i in range(len(self.Y)-1)]
+            X = [(self.X[i]+self.X[i+1])/2 for i in range(len(self.X)-1)]
+        if self.coord == 'cyl':
+            Z = [(self.K[i]+self.K[i+1])/2 for i in range(len(self.K)-1)]
+            Y = [(self.J[i]+self.J[i+1])/2 for i in range(len(self.J)-1)]
+            X = [(self.I[i]+self.I[i+1])/2 for i in range(len(self.I)-1)]
+            
+        # Now the matrix of distances is calculated. Each voxel has a distance value
+        # from its center to the focus point.
+        for k in Z:
+            J_vec = []
+            rotM = R.from_rotvec([0,0,k]) # useful only for cyl coord
+            for j in Y:
+                I_vec = []
+                for i in X:
+                    if self.coord == 'cart':# The distance in calculated differently depending if the coordinates are cart or cyl
+                        dist = ((i-focus[0])**2 + (j-focus[1])**2 + (k-focus[2])**2)**0.5
+                    else:
+                        point = rotM.apply([i,0,j])
+                        dist = ((point[0]-focus[0])**2 + (point[1]-focus[1])**2 + (point[2]-focus[2])**2)**0.5
+                    I_vec.append(dist)
+                J_vec.append(I_vec)
+            dist_matrix.append(J_vec)
+        
+        dist_matrix = np.array(dist_matrix)
+        # Eq: A*dist**2 +B = soft
+        dist_min = dist_matrix.min()**2
+        dist_max = dist_matrix.max()**2
+        
+        B = (soft_min*dist_min - soft_max*dist_max)/(dist_min-dist_max)
+        A = (soft_min-B)/dist_max
+        # Now the distances matrix is used to build the softening factors 
+        # matrix. Every voxel has its specific softening factor
+        softs = [] # Same shape as dist_matrix
+        for k in dist_matrix:
+            J_vec = []
+            for j in k:
+                I_vec = []
+                for i in j:
+                    factor = A*(i**2) + B
+                    I_vec.append(factor)
+                J_vec.append(I_vec)
+            softs.append(J_vec)
+        softs = np.array(softs)
+    
+        # The following part of the code is analogue to the original soft and 
+        # soft_cyl functions. It includes the hole filling which is different
+        # depending on the type of coordinates.
+        ww_mod=self.wwme
+        if self.coord == 'cart':
+            if len(zoneID) >1: # Hole-filling
+                for g in range (0,len(self.eb[NoParticle])):
+                    z = np.tile(zoneID,(len(self.Z)-1,1,1)) # A 3d zoneID
+                    holes = ww_mod[NoParticle][g]==0
+                    holes = holes*z
+                    holes=holes==1
+                    ww_mod[NoParticle][g] = fill(ww_mod[NoParticle][g], holes)
+        if self.coord == 'cyl':
+            if len(zoneID)>0: # Hole-filling
+                for g in range(int(self.d['B1_ne'][NoParticle])):
+                    z=[] # A 3d zoneID
+                    for i in range(len(zoneID)):
+                        z.append([])
+                        for m in range(len(self.J)-1):
+                            z[i].append(zoneID[i])
+                    while True: # For some unknown reason the fill operation when using cyl coordinates do not clear all the holes at once, several iterations are required
+                        holes = ww_mod[g]==0
+                        holes = holes*z
+                        holes=holes==1
+                        if len(np.argwhere(holes))==0:
+                            break
+                        ww_mod[g] = fill(ww_mod[g], holes)
+    
+        # Modification of wwme
+        for e in range(len(self.wwme[NoParticle])):
+            for k in range(len(self.wwme[NoParticle][e])):
+                for j in range(len(self.wwme[NoParticle][e][k])):
+                    for i in range(len(self.wwme[NoParticle][e][k][j])):
+                        self.wwme[NoParticle][e][k][j][i]=np.power(ww_mod[NoParticle][e][k][j][i],softs[k][j][i])
+            
+        # Modification of wwe (denesting list wihth the itertools)
+        if self.coord == 'cart':
+            for e in range (len(self.wwme[NoParticle])):             
+                step1 = self.wwme[NoParticle][e].tolist()
+                step2 = list(chain(*step1))
+                self.wwe[NoParticle][e] = list(chain(*step2))
+        if self.coord == 'cyl':
+            self.ww[NoParticle] = self.wwme[NoParticle].flatten()
+        return self
+
     
     # Function that applies a soft and a norm factor. It also does a hole-filling if there is a zoneID
     def soft_cyl(self, zoneID):
@@ -2528,6 +2712,7 @@ write_menu="""
 """                                                  
 operate_menu="""             
  * Softening and normalize   (soft)
+ * Focused softening         (soft2)
  * Mitigate long histories   (mit)
  * Add                       (add)
  * Remove                    (rem)
