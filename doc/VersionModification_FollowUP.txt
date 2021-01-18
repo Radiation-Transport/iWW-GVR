@@ -24,3 +24,5 @@ Version     Date            Comment/Changes
                             * Warning and modification for WW values >= 1e+100
                               introduced
 --------------------------------------------------------------------------------
+1.1.8       2021-01-18      * numpy linspace num as integer
+--------------------------------------------------------------------------------
