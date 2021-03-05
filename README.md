@@ -1,3 +1,9 @@
+![GitHub last commit](https://img.shields.io/github/last-commit/Radiation-Transport/iWW-GVR)
+![GitHub issues](https://img.shields.io/github/issues/Radiation-Transport/iWW-GVR)
+![GitHub closed issues](https://img.shields.io/github/issues-closed-raw/Radiation-Transport/iWW-GVR)
+![GitHub top language](https://img.shields.io/github/languages/top/Radiation-Transport/iWW-GVR)
+![](https://img.shields.io/badge/license-EU%20PL-blue)
+
 # iWW-GVR: A tool to manipulate MCNP weight window (WW) and to generate Global Variance Reduction (GVR) parameters
 
 The tool is a python 3.6 based script able to generate global variance reductions weight window (WW) using any mesh format in meshtally by D1SUNED, MCNP5 or MCNP6. Mesh format includes usual MCNP column or matrix format and also specific D1SUNED format including cell or isotope contribution binning and source mesh importance format. Only Cartesian can be read. The tool incorporates also simple functions to operate with weight windows (e.g., analyse, add and remove WW set, write, plot).
