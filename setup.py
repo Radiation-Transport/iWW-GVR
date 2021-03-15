@@ -19,7 +19,7 @@ setuptools.setup(
 #    ],
     include_package_data=True,
     install_requires=[
-          "numpy >= 1.14.3","pyevtk>=1.1.1","matplotlib>=2.2.2","vtk>=8.1.2","scipy>=1.1.0","tqdm>=4.35.0","pillow",
+          "numpy >= 1.14.3","pyevtk>=1.1.1","matplotlib==3.3.3","vtk>=8.1.2","scipy>=1.1.0","tqdm>=4.35.0","pillow",
       ],
     classifiers=[
         "Programming Language :: Python :: 3",
