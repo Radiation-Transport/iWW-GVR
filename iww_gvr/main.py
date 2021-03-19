@@ -105,10 +105,10 @@ class ww_item:
         eb1,
         ww2,
         eb2,
-        dict: Dict[str, Any],
+        extra: Dict[str, Any],
     ):
 
-        self.d: Dict[str, Any] = dict
+        self.d: Dict[str, Any] = extra
 
         self.coord: str = "cart"
 
@@ -530,9 +530,9 @@ def load(InputFile):
                 if L_COUNTER == 0:
                     # print ("Block No.2")
 
-                    B2_nfx = int(float(split[0]))
-                    B2_nfy = int(float(split[1]))
-                    B2_nfz = int(float(split[2]))
+                    B2_nfx: int = int(float(split[0]))
+                    B2_nfy: int = int(float(split[1]))
+                    B2_nfz: int = int(float(split[2]))
                     B2_Xo = float(split[3])
                     B2_Yo = float(split[4])
                     B2_Zo = float(split[5])
@@ -598,7 +598,8 @@ def load(InputFile):
                         B2_Z = False
                         BLOCK_NO = 3  # TURN ON SWITCH FOR BLOCK No. 3
 
-                        nbins = float(B2_nfx) * float(B2_nfy) * float(B2_nfz)
+                        # nbins = float(B2_nfx) * float(B2_nfy) * float(B2_nfz)
+                        nbins = B2_nfx * B2_nfy * B2_nfz
                         X = [vec_coarse[0][0]]
                         for i in range(1, len(vec_coarse[0])):
                             X = np.concatenate(
@@ -2177,7 +2178,10 @@ def load_cyl(InputFile):
                         B2_Z = False
                         BLOCK_NO = 3  # TURN ON SWITCH FOR BLOCK No. 3
 
-                    nbins = float(B2_Iints) * float(B2_Jints) * float(B2_Kints)
+                    # TODO dvp: check this conversion integers to floats than back - this looks dangerous
+                    # nbins = float(B2_Iints) * float(B2_Jints) * float(B2_Kints)
+                    # changed to:
+                    nbins = B2_Iints * B2_Jints * B2_Kints
                     X = [vec_coarse[0][0]]
                     for i in range(1, len(vec_coarse[0])):
                         X = np.concatenate(
@@ -3303,6 +3307,8 @@ operate_menu = """
 
 def main():
     clear_screen()
+    print("Current directory:", os.getcwd())
+    print("-"*50)
     print(principal_menu)
     ans, optname = answer_loop("principal")
     while True:
