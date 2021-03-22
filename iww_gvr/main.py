@@ -329,7 +329,7 @@ class ww_item:
             for e in range(0, len(self.eb[NoParticle])):
                 self.wwme[NoParticle][e] = np.power(ww_mod[NoParticle][e] * norm, soft)
 
-            # Modification of wwe (denesting list wihth the itertools)
+            # Modification of wwe (denesting list with the itertools)
             for e in range(0, len(self.eb[NoParticle])):
                 step1 = self.wwme[NoParticle][e].tolist()
                 step2 = list(chain(*step1))
@@ -342,7 +342,7 @@ class ww_item:
                     self.wwme[NoParticle][e] * norm, soft
                 )
 
-            # Modification of wwe (denesting list wihth the itertools)
+            # Modification of wwe (denesting list with the itertools)
             for e in range(0, len(self.eb[NoParticle])):
                 step1 = self.wwme[NoParticle][e].tolist()
                 step2 = list(chain(*step1))
@@ -446,12 +446,10 @@ def load(InputFile: str) -> ww_item:
     Returns:
 
     """
-    # To Import ww file
 
-    # Line counter
-    L_COUNTER = 0
+    line_counter = 0
 
-    BLOCK_NO = 1  # This parameter define the BLOCK position in the file
+    block_no = 1  # This parameter define the BLOCK position in the file
 
     # Variables for BLOCK No.1
     B1_if = 0
@@ -494,9 +492,9 @@ def load(InputFile: str) -> ww_item:
     # Function to load WW
     with open(InputFile, "r") as infile:
         for line in infile:
-            if BLOCK_NO == 1:
+            if block_no == 1:
                 # print ("Block No.1")
-                if L_COUNTER == 0:
+                if line_counter == 0:
                     info = line[50:]
                     line = line[:50]
 
@@ -507,9 +505,9 @@ def load(InputFile: str) -> ww_item:
                     B1_ni = int(split[2])
                     B1_nr = int(split[3])
 
-                    L_COUNTER += 1
+                    line_counter += 1
 
-                elif L_COUNTER == 1:
+                elif line_counter == 1:
 
                     split = line.split()
 
@@ -530,14 +528,14 @@ def load(InputFile: str) -> ww_item:
                     else:
                         B2_par = False  # ww2 set imposed in the ww2 position
 
-                    BLOCK_NO = 2  # TURN ON SWITCH FOR BLOCK No. 2
+                    block_no = 2  # TURN ON SWITCH FOR BLOCK No. 2
 
-                    L_COUNTER = 0  # CLEAN L_COUNTER
+                    line_counter = 0  # CLEAN line_counter
 
-            elif BLOCK_NO == 2:
+            elif block_no == 2:
                 split = line.split()
                 split = [float(i) for i in split]
-                if L_COUNTER == 0:
+                if line_counter == 0:
                     # print ("Block No.2")
 
                     B2_nfx: int = int(float(split[0]))
@@ -547,14 +545,14 @@ def load(InputFile: str) -> ww_item:
                     B2_Yo = float(split[4])
                     B2_Zo = float(split[5])
 
-                    L_COUNTER += 1
+                    line_counter += 1
 
-                elif L_COUNTER == 1:
+                elif line_counter == 1:
                     # print(line)
                     B2_ncx = float(split[0])
                     B2_ncy = float(split[1])
                     B2_ncz = float(split[2])
-                    L_COUNTER += 1
+                    line_counter += 1
                     B2_X = True
 
                 elif B2_X:
@@ -606,7 +604,7 @@ def load(InputFile: str) -> ww_item:
                         vec_coarse[2].append(split[5])
                     if split[-1] == 1.0000:
                         B2_Z = False
-                        BLOCK_NO = 3  # TURN ON SWITCH FOR BLOCK No. 3
+                        block_no = 3  # TURN ON SWITCH FOR BLOCK No. 3
 
                         # nbins = float(B2_nfx) * float(B2_nfy) * float(B2_nfz)
                         nbins = B2_nfx * B2_nfy * B2_nfz
@@ -652,35 +650,35 @@ def load(InputFile: str) -> ww_item:
                             )
                         B2_Zf = Z[-1]
 
-                        L_COUNTER = 0
+                        line_counter = 0
 
-            elif BLOCK_NO == 3:
+            elif block_no == 3:
                 split = line.split()
-                if L_COUNTER == 0:
+                if line_counter == 0:
                     for item in split:
                         B3_eb1.append(float(item))
 
                     if len(B3_eb1) == int(B1_ne[0]):
-                        L_COUNTER += 1
+                        line_counter += 1
 
-                elif L_COUNTER == 1:
+                elif line_counter == 1:
                     for item in split:
                         ww1.append(float(item))
                     if len(ww1) == (nbins * int(B1_ne[0])):
-                        L_COUNTER += 1
+                        line_counter += 1
 
-                elif L_COUNTER == 2:
+                elif line_counter == 2:
                     for item in split:
                         B3_eb2.append(float(item))
 
                     if len(B3_eb2) == int(B1_ne[1]):
-                        L_COUNTER += 1
+                        line_counter += 1
 
-                elif L_COUNTER == 3:
+                elif line_counter == 3:
                     for item in split:
                         ww2.append(float(item))
                     if len(ww2) == (nbins * int(B1_ne[1])):
-                        L_COUNTER += 1
+                        line_counter += 1
 
             bar.update()
     bar.close()
@@ -1954,8 +1952,16 @@ def enterfilename(name, wwfiles):
     return fname
 
 
-# Function to select the file
-def selectfile(wwfiles):
+def selectfile(wwfiles: List[str]) -> int:
+    """
+    Select a file from stored files list.
+
+    Args:
+        wwfiles: A list of stored files.
+
+    Returns: index of selected file in a stored files list.
+
+    """
     print("\n Input files present:")
     counter = 1
     for f in wwfiles:
@@ -2665,8 +2671,16 @@ class ww_item_cyl:
             self.ww[NoParticle] = self.wwme[NoParticle].flatten()
         return self
 
-    # Function that applies a soft and a norm factor. It also does a hole-filling if there is a zoneID
-    def soft_cyl(self, zoneID):
+    def soft_cyl(self, zoneID) -> 'ww_item_cyl':
+        """
+            Apply a soft and a norm factor. It also does a hole-filling if there is a zoneID.
+
+        Args:
+            zoneID:
+
+        Returns:
+
+        """
         flag = True
         while flag:
             soft = input(" Insert the softening factor: ")
