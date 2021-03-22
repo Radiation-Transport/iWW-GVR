@@ -12,7 +12,7 @@
 ########################################################################################################
 """
 
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Tuple
 
 
 import numpy as np
@@ -74,7 +74,7 @@ class ww_item:
 
     dim  : average voxel sizes [dX,dY,dZ] cm
 
-    par  : number of weight mesh parts: 1 or 2
+    par  : number of weight mesh particle parts: 1 or 2
 
     min  : minimum values list        [for e in eb[0]@min|ParNo1,for e in eb[1]@min|ParNo2]
 
@@ -145,7 +145,7 @@ class ww_item:
             ww = [ww1]
             self.eb: List[array] = [eb1]
 
-        self.wwe: List[array] = []
+        self.wwe: List[List[array]] = []
         values: List[array] = []
 
         for j in range(0, int(self.par)):
@@ -157,7 +157,7 @@ class ww_item:
             self.wwe.append(values)
             values = []
 
-        self.wwme: List[array] = []
+        self.wwme: List[List[array]] = []
         for j in range(0, int(self.par)):
             for i in range(0, len(self.eb[j])):
                 vector = np.array(self.wwe[j][i])
@@ -167,7 +167,7 @@ class ww_item:
             self.wwme.append(values)
             values = []
 
-        self.ratio: List[array] = []
+        self.ratio: List[List[array]] = []
         for j in range(0, self.par):
             for i in range(0, len(self.eb[j])):
                 vector = np.ones(int(self.bins))
@@ -352,7 +352,7 @@ class ww_item:
 
     def add(self):
         """
-            Add a ww set to the ww  (dvp: ?)
+            Add a weight window particle part to the weight window object.
         """
         flag = True
         while flag:
@@ -403,8 +403,10 @@ class ww_item:
 
         return self
 
-    # Function to remove a ww set to the ww
     def remove(self):
+        """
+            Remove a weight window particle part from the weight window object.
+        """
         flag = True
         while flag:
             NoParticle = input(" Insert the weight windows set to remove[0,1]: ")
@@ -434,8 +436,16 @@ class ww_item:
 #### Functions for WW manipulation ####
 #######################################
 
-# Function to open and parse the ww file hence creating a ww class item
-def load(InputFile):
+def load(InputFile: str) -> ww_item:
+    """
+    Open and parse the weight window file
+
+    Args:
+        InputFile: file to read
+
+    Returns:
+
+    """
     # To Import ww file
 
     # Line counter
@@ -675,8 +685,6 @@ def load(InputFile):
             bar.update()
     bar.close()
     # WW dictionary
-    dict = {}
-
     dict = {
         "B1_if": B1_if,
         "B1_iv": B1_iv,
@@ -701,8 +709,18 @@ def load(InputFile):
     return ww
 
 
-# Function to export the ww set in VTK or to the MCNP input format
 def write(wwdata, wwfiles, index):
+    """
+    Export the ww set in VTK or to the MCNP input format.
+
+    Args:
+        wwdata:
+        wwfiles:
+        index:
+
+    Returns:
+
+    """
     print(write_menu)
 
     ans, fname = answer_loop("write")
@@ -947,8 +965,18 @@ def write(wwdata, wwfiles, index):
         print(" File... written!")
 
 
-# Function for analysing the WW file
 def analyse(self, zoneID, factor):
+    """
+    Analyseg the Weight Window mesh.
+
+    Args:
+        self:
+        zoneID:
+        factor:   TODO dvp: what's this?
+
+    Returns:
+
+    """
     RATIO_EVA = []
 
     for p in range(0, self.par):
@@ -1619,13 +1647,25 @@ def gvr_soft(gvrname):
     return gvr
 
 
-# THE WW SHOULD BE ANALYSED BEFORE USING. Function to mitigate long history par. by reducing the values that produce a too high ratio
-def mitigate(ww, maxratio):
+def mitigate(ww, max_ratio: float) -> None:
+    """
+    Mitigate long history particles by reducing the values that produce a too high ratio.
+
+    Note:
+        THE WW SHOULD BE ANALYSED BEFORE USING.
+
+    Args:
+        ww:
+        max_ratio: maximal allowed ratio between neighbouring weight window voxels
+
+    Returns:
+
+    """
     for p in range(0, ww.par):
         for e in range(0, len(ww.eb[p])):
             extM = extend_matrix(ww.wwme[p][e])
-            while len(np.argwhere(ww.ratio[p][e] >= maxratio)) > 0:
-                idxs = np.argwhere(ww.ratio[p][e] >= maxratio)
+            while len(np.argwhere(ww.ratio[p][e] >= max_ratio)) > 0:
+                idxs = np.argwhere(ww.ratio[p][e] >= max_ratio)
                 print(
                     " Found these many values with a ratio higher than the maximum: ",
                     len(idxs),
@@ -1642,12 +1682,12 @@ def mitigate(ww, maxratio):
                     neig = [x for x in neig if x > 0]
                     # ww.wwme[p][e][tuple(idx)] = (max(neig)+min(neig))/2.0
                     ww.wwme[p][e][tuple(idx)] = (max(neig)) / (
-                        maxratio * 0.9
+                            max_ratio * 0.9
                     )  # Reduce the ww value to one right below the maxim ratio allowed
                     ww.ratio[p][e][tuple(idx)] = max(neig) / ww.wwme[p][e][tuple(idx)]
 
     for NoParticle in range(0, ww.par):
-        # Modification of wwe (denesting list wihth the itertools)
+        # Modification of wwe (denesting list with the itertools)
         for e in range(0, len(ww.eb[NoParticle])):
             step1 = ww.wwme[NoParticle][e].tolist()
             step2 = list(chain(*step1))
@@ -1834,8 +1874,16 @@ def operate():
 ###### Menu Supporting Functions ######
 #######################################
 
-# Function which defines the main answer loop
-def answer_loop(menu):
+def answer_loop(menu: str) -> Tuple[str, str]:
+    """
+    Run main menu loop.
+
+    Args:
+        menu: name of menu
+
+    Returns:
+
+    """
     pkeys = ["open", "info", "write", "analyse", "plot", "operate", "end", "gvr"]
     wkeys = ["wwinp", "vtk", "end"]
     okeys = ["add", "rem", "soft", "soft2", "mit", "end"]
@@ -1875,8 +1923,17 @@ def answer_loop(menu):
     return ans0, ans1
 
 
-# Function to enter the filename
 def enterfilename(name, wwfiles):
+    """
+    Enter the filename
+
+    Args:
+        name:
+        wwfiles: already loaded files list
+
+    Returns:
+
+    """
     if len(wwfiles) > 0:
         while True:
             fname = input(" enter ww file name:")
@@ -1942,7 +1999,7 @@ def closest(list: List, Number):
 
 def ISnumber(lis: Iterable) -> bool:
     """
-       Check if the list contains only numbers.
+       Check if the list contains only objects convertible to floats.
     """
     for x in lis:
         try:
@@ -1952,21 +2009,39 @@ def ISnumber(lis: Iterable) -> bool:
             return False
 
 
-# Function to clean the screen (e.g cls)
-def clear_screen():
+def clear_screen() -> None:
+    """
+    Clean the console screen.
+    """
     if os.name == "nt":
         os.system("cls")
     else:
         os.system("clear")
 
 
-# Function that returns the same matrix but covered in zeros. m1==m2[1:-1,1:-1] Works for 2d and 3d arrays
-def extend_matrix(matrix):
+def extend_matrix(matrix: array) -> array:
+    """
+    Return the same matrix but covered in zeros.
+
+    dvp: Surround matrix with zero filled edges.
+
+    Works for 2d and 3d arrays
+
+    Args:
+        matrix: matrix to be surrounded with zeroes
+
+    Returns:
+        0 0 0 0 ... 0 0 0
+        0               0
+        .    matrix     .
+        0               0
+        0 0 0 0 ... 0 0 0
+    """
     shape = ()
     for dim in matrix.shape:
         shape = shape + (dim + 2,)
     new_matrix = np.zeros(shape)
-    try:
+    try:  # TODO dvp: try/except here? What for? Convert this to plain numpy code.
         new_matrix[1:-1, 1:-1] = matrix
     except:
         new_matrix[1:-1, 1:-1, 1:-1] = matrix
