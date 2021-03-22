@@ -423,7 +423,7 @@ class ww_item:
         del self.wwe[NoParticle]
         del self.eb[NoParticle]
 
-        del self.wwm[NoParticle]
+        # del self.wwm[NoParticle]
         del self.wwme[NoParticle]
 
         self.par = 1
