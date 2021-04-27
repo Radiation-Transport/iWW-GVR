@@ -35,8 +35,8 @@ def create_cube_with_source_at_corner(
 
     cells_numbers = np.arange(1, cell_bins**3 + 1).reshape(cell_bins, cell_bins, cell_bins)
 
-    for i, j, k in np.ndindex(cells_numbers.shape):
-        print(cells_numbers[i, j, k], '0')
+    for k, j, i in np.ndindex(cells_numbers.shape):
+        print(i, j, k, ':', cells_numbers[k, j, i], '0')
 
 
 def main():
