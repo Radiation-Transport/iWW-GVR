@@ -118,10 +118,12 @@ class ww_item:
 
         self.name: str = filename
 
-        assert isinstance(nbins, int), f"Parameter 'nbins' is to be integer, '{nbins}' is given."
+        assert isinstance(
+            nbins, int
+        ), f"Parameter 'nbins' is to be integer, '{nbins}' is given."
         self.bins: int = nbins
 
-        self.degree: List = []     # TODO dvp: clarify type of this list entries
+        self.degree: List = []  # TODO dvp: clarify type of this list entries
 
         self.vol: float = (
             (self.X[-1] - self.X[0])
@@ -294,7 +296,9 @@ class ww_item:
             NoParticle = 0
 
         ww_out = []
-        ww_mod = self.wwme  # TODO dvp: this creates modifiable alias to self.wwme, is it intended?
+        ww_mod = (
+            self.wwme
+        )  # TODO dvp: this creates modifiable alias to self.wwme, is it intended?
 
         if len(zoneID) > 1:  # Hole-filling
             for g in range(0, len(self.eb[NoParticle])):
@@ -352,7 +356,7 @@ class ww_item:
 
     def add(self):
         """
-            Add a weight window particle part to the weight window object.
+        Add a weight window particle part to the weight window object.
         """
         flag = True
         while flag:
@@ -405,7 +409,7 @@ class ww_item:
 
     def remove(self):
         """
-            Remove a weight window particle part from the weight window object.
+        Remove a weight window particle part from the weight window object.
         """
         flag = True
         while flag:
@@ -435,6 +439,7 @@ class ww_item:
 #######################################
 #### Functions for WW manipulation ####
 #######################################
+
 
 def load(InputFile: str) -> ww_item:
     """
@@ -1680,7 +1685,7 @@ def mitigate(ww, max_ratio: float) -> None:
                     neig = [x for x in neig if x > 0]
                     # ww.wwme[p][e][tuple(idx)] = (max(neig)+min(neig))/2.0
                     ww.wwme[p][e][tuple(idx)] = (max(neig)) / (
-                            max_ratio * 0.9
+                        max_ratio * 0.9
                     )  # Reduce the ww value to one right below the maxim ratio allowed
                     ww.ratio[p][e][tuple(idx)] = max(neig) / ww.wwme[p][e][tuple(idx)]
 
@@ -1872,6 +1877,7 @@ def operate():
 ###### Menu Supporting Functions ######
 #######################################
 
+
 def answer_loop(menu: str) -> Tuple[str, str]:
     """
     Run main menu loop.
@@ -1985,6 +1991,7 @@ def selectfile(wwfiles: List[str]) -> int:
 ####      Supporting Functions     ####
 #######################################
 
+
 def closest(list: List, Number):
     """
     Find the index of the closest list value of Number within the given list.
@@ -2005,7 +2012,7 @@ def closest(list: List, Number):
 
 def ISnumber(lis: Iterable) -> bool:
     """
-       Check if the list contains only objects convertible to floats.
+    Check if the list contains only objects convertible to floats.
     """
     for x in lis:
         try:
@@ -2366,7 +2373,7 @@ class ww_item_cyl:
     Cylinder mesh
     """
 
-    def __init__(self, filename, I, J, K, nbins, ww, B3_eb1, B3_eb2, dict):
+    def __init__(self, filename, I, J, K, nbins: int, ww, B3_eb1, B3_eb2, dict):
         # >>> ww_item properties
         # - self.d    : dictionary
         # - self.I    : I discretization vector cyl radius
@@ -2392,13 +2399,17 @@ class ww_item_cyl:
         self.K = K
 
         self.name = filename
-
-        self.bins = nbins
-
+        "Weight file name"
+        self.bins:int = nbins
+        "Voxels number"
         self.ww = ww
+        "Flattened list of weight values"
         self.eb1 = B3_eb1
+        "Particle #1 energy bins"
         self.eb2 = B3_eb2
+        "Particle #2 energy bins"
         self.eb12 = [self.eb1, self.eb2]
+        "List of energy bins"
 
         if len(self.eb1) == 1:
             self.wwme = np.array(
@@ -2409,6 +2420,8 @@ class ww_item_cyl:
                 ]
             )
         else:
+            # TODO dvp: the weight matrix dimensions order doesn't correspond speed of coordinates cycling:
+            #           E, K, J, I, but should be K, J, I, E
             self.wwme = np.array(ww[0]).reshape(
                 len(self.eb1),
                 self.d["B2_Kints"],
@@ -2671,7 +2684,7 @@ class ww_item_cyl:
             self.ww[NoParticle] = self.wwme[NoParticle].flatten()
         return self
 
-    def soft_cyl(self, zoneID) -> 'ww_item_cyl':
+    def soft_cyl(self, zoneID) -> "ww_item_cyl":
         """
             Apply a soft and a norm factor. It also does a hole-filling if there is a zoneID.
 
@@ -2998,13 +3011,26 @@ def analyse_cyl(self, zoneID):
 
 
 def extend_matrix_cyl(
-    matrix,
-):  # extends a matrix in both senses for J and I and only in one sense in K
+    matrix: np.ndarray,
+) -> np.ndarray:
+    """
+    Extend a `matrix` in both senses for J and I and only in one sense in K.
+
+    Args:
+        matrix:
+            3D matrix with dimensions K x J x I.
+            K - corresponds to theta angle binning in cylinder geometry, so, it should be K[0] == K[-1]
+    Returns:
+        3D matrix with added zero filled edges: from both sides along I, J dimensions and from one side along K(theta).
+    """
+
+    # TODO dvp: this can be replaced with a closure view: no need to maintain one more large matrix
+
     newM = np.zeros((matrix.shape[0] + 1, matrix.shape[1] + 2, matrix.shape[2] + 2))
     newM[
         :-1, 1:-1, 1:-1
     ] = matrix  # This way the K[-1] will be k[0] and not a zero value
-    newM[-1] = newM[-2]
+    newM[-1] = newM[-2]   # TODO dvp: check, this is a bit tricky to me
     return newM
 
 
@@ -3317,8 +3343,24 @@ def gvr_soft_cyl(m, mesh, gvrname):
     return gvr
 
 
-# Mitigates long histories problems
-def mitigate_cyl(self, maxratio):
+def mitigate_cyl(self: ww_item_cyl, maxratio: float) -> None:
+    """
+    Mitigates long histories problems.
+
+    Sets `weight` values (and corresponding `ratio`), where max ratio
+    with neighbour values exceeds `maxratio` to 0.9*maxratio*max(neighbours).
+
+
+    Args:
+        self:
+            Cylinder mesh
+        maxratio:
+            Max allowed ratio between neighbour voxels
+
+    Returns:
+        None, self weights and ratio are changed in place
+    """
+
     for p in range(len(self.d["B1_ne"])):
         for e in range(int(self.d["B1_ne"][p])):
             iterations = 0
@@ -3349,7 +3391,8 @@ def mitigate_cyl(self, maxratio):
                 if iterations > 5:
                     print(" Maximum number of iterations reached")
                     print(
-                        " The difference of value between certain voxels is too high to reduce the ratio below the specified max ratio"
+                        " The difference of value between certain voxels is too high",
+                        "to reduce the ratio below the specified max ratio",
                     )
                     break
         # Modification of ww
@@ -3397,7 +3440,7 @@ operate_menu = """
 def main():
     clear_screen()
     print("Current directory:", os.getcwd())
-    print("-"*50)
+    print("-" * 50)
     print(principal_menu)
     ans, optname = answer_loop("principal")
     while True:
