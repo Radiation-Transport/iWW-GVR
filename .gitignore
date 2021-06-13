@@ -1,4 +1,7 @@
 .*
 build/
 testing/
-
+iww_gvr.egg-info/
+.eggs/
+.idea/
+wrk/
