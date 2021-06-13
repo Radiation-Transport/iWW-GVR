@@ -14,31 +14,30 @@
 
 from typing import Any, Dict, Iterable, List, Tuple
 
-
-import numpy as np
 import math
-from numpy import ndarray as array
-
-import matplotlib.colors as colors
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-
 import os
 import sys
 
-
-from copy import (
+from copy import (  # To copy a ww class instance in soft() and not modify the original ww
     deepcopy,
-)  # To copy a ww class instance in soft() and not modify the original ww
-from pyevtk.hl import (
-    gridToVTK,
-)  # https://pypi.org/project/pyevtk/, pip install pyevtk for alvaro works like this
-import vtk
-from tqdm import tqdm  # Progress bars
+)
+from itertools import chain  # used to desnest list
+
+import matplotlib as mpl
+import matplotlib.colors as colors
+import matplotlib.pyplot as plt
+import numpy as np
+
+from numpy import ndarray as array
 from scipy import ndimage as nd  # Filling holes in zoneDEF 'auto'
 from scipy.spatial.transform import Rotation as R  # For the rotation matrices in cyl
 
-from itertools import chain  # used to desnest list
+import vtk
+
+from pyevtk.hl import (  # https://pypi.org/project/pyevtk/, pip install pyevtk for alvaro works like this
+    gridToVTK,
+)
+from tqdm import tqdm  # Progress bars
 
 try:
     from vtkmodules.util import numpy_support
@@ -96,11 +95,11 @@ class ww_item:
     def __init__(
         self,
         filename: str,
-        X: array,
-        Y: array,
-        Z: array,
+        x: array,
+        y: array,
+        z: array,
         nbins: int,
-        No_Particle: int,
+        particles_qty: int,
         ww1,
         eb1,
         ww2,
@@ -112,9 +111,9 @@ class ww_item:
 
         self.coord: str = "cart"
 
-        self.X: array = X
-        self.Y: array = Y
-        self.Z: array = Z
+        self.X: array = x
+        self.Y: array = y
+        self.Z: array = z
 
         self.name: str = filename
 
@@ -122,6 +121,8 @@ class ww_item:
             nbins, int
         ), f"Parameter 'nbins' is to be integer, '{nbins}' is given."
         self.bins: int = nbins
+        """Number of voxels"""
+        # TODO dvp: redundant and duplicates information from bins
 
         self.degree: List = []  # TODO dvp: clarify type of this list entries
 
@@ -131,14 +132,16 @@ class ww_item:
             * (self.Z[-1] - self.Z[0])
             / self.bins
         )
+        """Average voxel volume"""
 
         self.dim: List[float] = [
             (self.X[-1] - self.X[0]) / (len(self.X) - 1),
             (self.Y[-1] - self.Y[0]) / (len(self.Y) - 1),
             (self.Z[-1] - self.Z[0]) / (len(self.Z) - 1),
         ]
+        """Averaged edges sizes along spatial dimensions"""
 
-        self.par: int = No_Particle
+        self.par: int = particles_qty
 
         if self.par > 1:
             ww = [ww1, ww2]
@@ -162,13 +165,14 @@ class ww_item:
         self.wwme: List[List[array]] = []
         for j in range(0, int(self.par)):
             for i in range(0, len(self.eb[j])):
-                vector = np.array(self.wwe[j][i])
+                vector = np.asarray(self.wwe[j][i], dtype=float)
                 values.append(
                     vector.reshape(len(self.Z) - 1, len(self.Y) - 1, len(self.X) - 1)
                 )
             self.wwme.append(values)
             values = []
 
+        # TODO dvp: `ratio` is out of scope of WW mesh object, move to separate processing context object.
         self.ratio: List[List[array]] = []
         for j in range(0, self.par):
             for i in range(0, len(self.eb[j])):
@@ -457,19 +461,26 @@ def load(InputFile: str) -> ww_item:
     block_no = 1  # This parameter define the BLOCK position in the file
 
     # Variables for BLOCK No.1
-    B1_if = 0
-    B1_iv = 0
     B1_ni = 0
+    "Number of particles"
     B1_nr = 0
-    B1_ne = []
+    "Number of geometry parameters: 10 - cartesian, 16 - cylinder"
+    B1_ne: List[int] = []
+    """Numbers of energy bins for each particle"""
 
     # Variables for BLOCK No.2
     B2_nfx = 0
+    """Number of spatial bins along X axis"""
     B2_nfy = 0
+    """Number of spatial bins along Y axis"""
     B2_nfz = 0
+    """Number of spatial bins along Z axis"""
     B2_Xo = 0
+    """Origin x"""
     B2_Yo = 0
+    """Origin y"""
     B2_Zo = 0
+    """Origin z"""
     B2_Xf = 0
     B2_Yf = 0
     B2_Zf = 0
@@ -500,7 +511,7 @@ def load(InputFile: str) -> ww_item:
             if block_no == 1:
                 # print ("Block No.1")
                 if line_counter == 0:
-                    info = line[50:]
+                    # info = line[50:]
                     line = line[:50]
 
                     split = line.split()
@@ -607,7 +618,7 @@ def load(InputFile: str) -> ww_item:
                         vec_coarse[2].append(split[2])
                         vec_fine[2].append(split[4])
                         vec_coarse[2].append(split[5])
-                    if split[-1] == 1.0000:
+                    if split[-1] == 1.0:
                         B2_Z = False
                         block_no = 3  # TURN ON SWITCH FOR BLOCK No. 3
 
@@ -1166,54 +1177,49 @@ def zoneDEF(self, degree):
 
     """
     if degree == "all":  # The ww is completely contained in the model domain
-        zoneID = []
-        zoneID = np.ones((int(len(self.Y) - 1), int(len(self.X) - 1)))
-
+        zone_id = np.ones((int(len(self.Y) - 1), int(len(self.X) - 1)))
         factor = 1
-
     elif degree == "auto":
-        zoneID = np.zeros((int(len(self.Y) - 1), int(len(self.X) - 1)))
+        zone_id = np.zeros((int(len(self.Y) - 1), int(len(self.X) - 1)))
         non_zero_index = [
             i[3:] for i in np.argwhere(self.wwme)
         ]  # creates a list of indices of j,i if there is a non-zero value
         non_zero_index = np.unique(non_zero_index, axis=0)  # deletes repeated indices
         for j, i in non_zero_index:
-            zoneID[j][i] = 1
-        zoneID = nd.binary_fill_holes(zoneID).astype(
+            zone_id[j][i] = 1
+        zone_id = nd.binary_fill_holes(zone_id).astype(
             int
-        )  # Fills all the holes in zoneID
+        )  # Fills all the holes in zone_id
         # plot the ZONE
         cmap = plt.get_cmap("jet", 1064)
         # tell imshow about color map so that only set colors are used
-        img = mpl.pyplot.imshow(zoneID, cmap=cmap, norm=colors.Normalize(0, 1))
-        factor = sum(sum(zoneID)) / (int(len(self.Y) - 1) * int(len(self.X) - 1))
-        print(" zoneID automatically generated!")
-
+        img = mpl.pyplot.imshow(zone_id, cmap=cmap, norm=colors.Normalize(0, 1))
+        factor = sum(sum(zone_id)) / (int(len(self.Y) - 1) * int(len(self.X) - 1))
+        print(" zone_id automatically generated!")
     else:  # The ww is partialy contained in the model domain
-
         # PR - Evaluation of the WW
-        zoneID = []
-        zoneID = np.zeros((int(len(self.Y) - 1), int(len(self.X) - 1)))
+        zone_id = []
+        zone_id = np.zeros((int(len(self.Y) - 1), int(len(self.X) - 1)))
 
         for j in range(0, int(len(self.Y) - 1)):
             for i in range(0, int(len(self.X) - 1)):
                 if np.absolute(np.arctan(self.Y[j] / self.X[i])) < (
                     degree / 2 / 180 * math.pi
                 ):
-                    zoneID[j, i] = 1
+                    zone_id[j, i] = 1
 
         # plot the ZONE
         cmap = plt.get_cmap("jet", 1064)
 
         # tell imshow about color map so that only set colors are used
-        img = mpl.pyplot.imshow(zoneID, cmap=cmap, norm=colors.Normalize(0, 1))
+        img = mpl.pyplot.imshow(zone_id, cmap=cmap, norm=colors.Normalize(0, 1))
 
         # problem here -->> mpl.pyplot.show(block = False)
 
         # Factor which evaluates the simulation domain
-        factor = sum(sum(zoneID)) / (int(len(self.Y)) * int(len(self.X)))
+        factor = sum(sum(zone_id)) / (int(len(self.Y)) * int(len(self.X)))
 
-    return zoneID, factor
+    return zone_id, factor
 
 
 # Function for "plot" option
@@ -2034,43 +2040,59 @@ def clear_screen() -> None:
 
 def extend_matrix(matrix: array) -> array:
     """
-    Return the same matrix but covered in zeros.
+    Surround matrix with zero filled edges.
 
-    dvp: Surround matrix with zero filled edges.
+    See tests and Examples.
 
-    Works for 2d and 3d arrays
+    Note: implicitly converts data types to float.
 
     Args:
         matrix: matrix to be surrounded with zeroes
 
     Returns:
-        0 0 0 0 ... 0 0 0
-        0               0
-        .    matrix     .
-        0               0
-        0 0 0 0 ... 0 0 0
+        the matrix surrounded with zeroes
+
+    Examples:
+    >>> a = np.array([[1, 2], [3,4]])
+    >>> a
+    array([[1, 2],
+           [3, 4]])
+    >>> extend_matrix(a)
+    array([[0., 0., 0., 0.],
+           [0., 1., 2., 0.],
+           [0., 3., 4., 0.],
+           [0., 0., 0., 0.]])
     """
+
     shape = ()
+    slices = ()
     for dim in matrix.shape:
         shape = shape + (dim + 2,)
+        slices = slices + (slice(1, -1),)
     new_matrix = np.zeros(shape)
-    try:  # TODO dvp: try/except here? What for? Convert this to plain numpy code.
-        new_matrix[1:-1, 1:-1] = matrix
-    except:
-        new_matrix[1:-1, 1:-1, 1:-1] = matrix
+    # try:  # TODO dvp: try/except here? What for? Convert this to plain numpy code.
+    #     new_matrix[1:-1, 1:-1] = matrix
+    # except:
+    #     new_matrix[1:-1, 1:-1, 1:-1] = matrix
+    new_matrix[slices] = matrix
     return new_matrix
 
 
-# Function that returns a matrix with its holes filled. Input(matrix, matrix with True where there is a hole to fix)
-def fill(data, invalid):
+def fill(data: array, invalid: array) -> array:
     """
+    Fill holes in `data` indicated by `invalid`.
+
     Replace the value of invalid 'data' cells (indicated by 'invalid')
     by the value of the nearest valid data cell
-    Input:
-        data:    numpy array of any dimension
-        invalid: matrix with True where there  is a hole to fix
-    Output:
-        Return a filled array.
+
+    Args:
+        data:
+            numpy array of any dimension
+        invalid:
+            matrix with True where there  is a hole to fix
+
+    Returns:
+         The array with filled values.
     """
     ind = nd.distance_transform_edt(
         invalid, return_distances=False, return_indices=True
@@ -2083,7 +2105,7 @@ def fill(data, invalid):
 #######################################
 
 
-def load_cyl(InputFile):
+def load_cyl(input_file: str):
     # LIMITATION: Only works with ww that have a single coarse mesh in each direction
     #  This limitation could be overcome.
     #  It may be that the original parser also has this limitation but ignores the fine meshes.
@@ -2091,8 +2113,7 @@ def load_cyl(InputFile):
 
     # To Import ww file
 
-    # Line counter
-    L_COUNTER = 0
+    line_counter = 0
 
     BLOCK_NO = 1  # This parameter define the BLOCK position in the file
 
@@ -2130,16 +2151,16 @@ def load_cyl(InputFile):
 
     ww = [[], []]
 
-    nlines = 0  # For the bar progress
-    for line in open(InputFile).readlines():
-        nlines += 1
-    bar = tqdm(unit=" lines read", desc=" Reading file", total=nlines)
+    lines_to_process = 0  # For the bar progress
+    for line in open(input_file).readlines():
+        lines_to_process += 1
+    bar = tqdm(unit=" lines read", desc=" Reading file", total=lines_to_process)
     # Function to load WW
-    with open(InputFile, "r") as infile:
+    with open(input_file, "r") as infile:
 
         for line in infile:
             if BLOCK_NO == 1:
-                if L_COUNTER == 0:
+                if line_counter == 0:
 
                     info = line[50:]
                     line = line[:50]
@@ -2150,9 +2171,9 @@ def load_cyl(InputFile):
                     B1_iv = int(split[1])
                     B1_ni = int(split[2])
                     B1_nr = int(split[3])
-                    L_COUNTER += 1
+                    line_counter += 1
 
-                elif L_COUNTER == 1:
+                elif line_counter == 1:
                     split = line.split()
 
                     for item in split:
@@ -2172,27 +2193,27 @@ def load_cyl(InputFile):
                     else:
                         B2_par = False  # ww2 set imposed in the ww2 position
 
-                    L_COUNTER += 1
+                    line_counter += 1
                     BLOCK_NO = 2  # TURN ON SWITCH FOR BLOCK No. 2
 
             elif BLOCK_NO == 2:
-                if L_COUNTER == 2:
+                if line_counter == 2:
                     split = line.split()
                     B2_Iints = int(float(split[0]))
                     B2_Jints = int(float(split[1]))
                     B2_Kints = int(float(split[2]))
                     B2_Origin = (float(split[3]), float(split[4]), float(split[5]))
-                    L_COUNTER += 1
+                    line_counter += 1
 
-                elif L_COUNTER == 3:
+                elif line_counter == 3:
                     split = line.split()
                     B2_Icn = int(float(split[0]))
                     B2_Jcn = int(float(split[1]))
                     B2_Kcn = int(float(split[2]))
                     B2_Final = (float(split[3]), float(split[4]), float(split[5]))
-                    L_COUNTER += 1
+                    line_counter += 1
 
-                elif L_COUNTER == 4:
+                elif line_counter == 4:
                     split = line.split()
                     B2_ncx = float(split[0])
                     B2_ncy = float(split[1])
@@ -2203,7 +2224,7 @@ def load_cyl(InputFile):
                         B2_ncz - B2_Origin[2],
                     )
                     vec = vec / np.linalg.norm(vec)
-                    L_COUNTER += 1
+                    line_counter += 1
 
                     B2_X = True
 
@@ -2364,7 +2385,7 @@ def load_cyl(InputFile):
         "vec_fine": vec_fine,
     }
 
-    ww = ww_item_cyl(InputFile, X, Y, Z, nbins, ww, B3_eb1, B3_eb2, dict)
+    ww = ww_item_cyl(input_file, X, Y, Z, nbins, ww, B3_eb1, B3_eb2, dict)
     return ww
 
 
@@ -2400,7 +2421,7 @@ class ww_item_cyl:
 
         self.name = filename
         "Weight file name"
-        self.bins:int = nbins
+        self.bins: int = nbins
         "Voxels number"
         self.ww = ww
         "Flattened list of weight values"
@@ -3030,7 +3051,7 @@ def extend_matrix_cyl(
     newM[
         :-1, 1:-1, 1:-1
     ] = matrix  # This way the K[-1] will be k[0] and not a zero value
-    newM[-1] = newM[-2]   # TODO dvp: check, this is a bit tricky to me
+    newM[-1] = newM[-2]  # TODO dvp: check, this is a bit tricky to me
     return newM
 
 

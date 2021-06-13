@@ -16,6 +16,7 @@ to be equivalent to meshes from real problems.
 """
 
 import itertools
+
 import numpy as np
 
 
@@ -33,12 +34,12 @@ def create_cube_with_source_at_corner(
     half_edge = 0.5 * edge_size
     cell_bins_coords = np.linspace(-half_edge, half_edge, cell_bins + 1)
 
-    cells_numbers = np.arange(1, cell_bins**3 + 1).reshape(cell_bins, cell_bins, cell_bins)
+    cells_numbers = np.arange(1, cell_bins ** 3 + 1, dtype=np.int32).reshape(
+        cell_bins, cell_bins, cell_bins
+    )
 
     for k, j, i in np.ndindex(cells_numbers.shape):
-        print(i, j, k, ':', cells_numbers[k, j, i], '0')
-
-
+        print(i, j, k, ":", cells_numbers[k, j, i], "0")
 
 
 def main():

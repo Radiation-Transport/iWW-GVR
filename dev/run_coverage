@@ -1,5 +1,8 @@
 #!/bin/bash
-
+#
+# Generate html coverage report.
+# See folder htmlcov/index.html
+#
 coverage run -m pytest tests
 coverage report --show-missing --skip-covered
 coverage html

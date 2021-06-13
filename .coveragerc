@@ -1,6 +1,6 @@
 [run]
 
-include = mckit/*
+include = iww_gvr/*
 
 omit =
     *_tab.py
@@ -27,6 +27,9 @@ exclude_lines =
     # Don't complain if non-runnable code isn't run:
     if 0:
     if __name__ == .__main__.:
+
+    # Ignore fallbacks to older packages
+    except ImportError
 
 ignore_errors = True
 sort = Cover

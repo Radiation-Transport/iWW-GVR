@@ -1,5 +1,6 @@
-import setuptools
 import sys
+
+import setuptools
 
 # noinspection PyPep8Naming
 from setuptools.command.test import test as TestCommand
@@ -61,3 +62,6 @@ setuptools.setup(
     ],
     entry_points={"console_scripts": ["iww_gvr = iww_gvr.main:main"]},
 )
+
+
+# TODO dvp: replace this script with pyproject.toml, reason - setup.py approach is obsolete
