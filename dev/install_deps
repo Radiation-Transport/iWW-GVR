@@ -1,0 +1,89 @@
+#!/bin/bash
+
+can_read() {
+    local requirements=$1
+    if [[ -z "$requirements" ]]; then 
+        echo "Please, specify requirements file"
+        return 1
+    fi
+    if [[ ! -r "$requirements" ]]; then
+        echo "Cannot read requirements file $requirements"
+        return 1
+    fi
+    return 0
+}
+
+#
+# Try to install requirements all at once using conda --file options.
+# If this attempt failes because of one of the requirements, tries to install one by one.
+#
+#
+#  Original solution via StackOverflow:
+#    http://stackoverflow.com/questions/35802939/install-only-available-packages-using-conda-install-yes-file-requirements-t
+#
+install_with_conda() {
+    local requirements=$1
+    #
+    #  Install via `conda` directly.
+    #  This will fail to install all
+    #  dependencies. If one fails,
+    #  all dependencies will fail to install.
+    #
+    conda install --yes --file $requirements
+
+    #
+    #  To go around issue above, one can
+    #  iterate over all lines in the
+    #  requirements.txt file.
+    #
+    if [[ $? != 0 ]]; then
+        while read requirement; do conda install --yes $requirement; done < requirements.txt
+    fi
+}
+
+pipup() {
+    python -m pip install --upgrade pip wheel
+}
+
+install_with_pip() {
+    local requirements=$1
+    pipup
+    pip install -r $requirements
+}
+
+install_packages() {
+    tool="pip"
+    if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
+cat <<EOF
+    Install packages from requirements file using conda or pip.
+
+    Usage:
+        install_packages [-t <tool>] [requirements]
+
+    Options:
+        -h, --help - print this message
+        -t, --tool - use given <tool>, probable values pip or conda (default pip)
+        requirements - file with requirements (default requirements-dev.txt)
+EOF
+        return 0
+    fi
+    if [[ "$1" == "-t" || "$1" == "--tool" ]]; then
+        shift
+        tool=$1
+        shift
+    fi
+    requirements="${1:-requirements-dev.txt}"
+    can_read $requirements || return 1
+    if [[ "pip" == "$tool" ]]; then 
+        install_with_pip $requirements
+    elif [[ "conda" == "$tool" ]]; then
+        install_with_conda $requirements
+    else
+        echo "Unknown tool specified: $tool"
+        return 1
+    fi
+}
+
+[[ -n $BATS_PREFIX ]] || install_packages $@
+
+# vim: set ts=4 sw=4 tw=92 ss=0 ft=sh et ai :

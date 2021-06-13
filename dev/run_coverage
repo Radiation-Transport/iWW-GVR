@@ -1,0 +1,6 @@
+#!/bin/bash
+
+coverage run -m pytest tests
+coverage report --show-missing --skip-covered
+coverage html
+
