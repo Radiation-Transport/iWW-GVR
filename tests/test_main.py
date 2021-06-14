@@ -6,7 +6,10 @@ from numpy.testing import assert_array_equal
 import iww_gvr.main as m
 import pytest
 
-from iww_gvr.main import ISnumber, extend_matrix
+from iww_gvr.main import ISnumber, extend_matrix, load
+from iww_gvr.utils.resource import path_resolver
+
+data_path = path_resolver("tests")
 
 
 def a(*elements, dtype=float):
@@ -120,6 +123,41 @@ def test_cartesian_constructor():
     assert_array_equal(cartesian.X, x)
     assert_array_equal(cartesian.Y, y)
     assert_array_equal(cartesian.Z, z)
+
+
+@pytest.mark.skip(
+    reason="Segmentation fault in matplotlib destroy? What involves matplotlib on reading? Check."
+)
+def test_read_simple_cartesian():
+    path = data_path("data/simple_cartesian.wwinp")
+    assert path.exists()
+    mesh: m.ww_item = load(str(path))
+    assert_array_equal(mesh.X, np.linspace(0, 3, 4, dtype=float))
+    assert_array_equal(mesh.Y, np.linspace(0, 3, 4, dtype=float))
+    assert_array_equal(mesh.Z, np.linspace(0, 3, 4, dtype=float))
+    assert 1 == len(mesh.wwe), "Only one energy bin was specified"
+    assert 27 == len(
+        mesh.wwe[0][0]
+    ), "Number of bins for the only energy bin and the only particle"
+    wwme = mesh.wwme
+    assert 1 == len(wwme)
+    ww = wwme[0][0]
+    assert 27 == ww.size
+    assert (3, 3, 3) == ww.shape
+
+
+# TODO dvp: see below
+@pytest.mark.skip(reason="Segmentation fault in matplotlib? Check.")
+@pytest.mark.slow
+def test_read_simple_cartesian_extended():
+    path = data_path("data/simple_cartesian.wwinp")
+    assert path.exists()
+    mesh: m.ww_item = load(str(path))
+    # TODO dvp: identify assertions in the following
+    mesh.info()
+    for degree in ["all", "auto", 20.0]:
+        zone_id, factor = m.zoneDEF(mesh, degree)
+        m.analyse(mesh, zone_id, factor)
 
 
 if __name__ == "__main__":

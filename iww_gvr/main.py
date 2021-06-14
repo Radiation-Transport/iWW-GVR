@@ -23,7 +23,7 @@ from copy import (  # To copy a ww class instance in soft() and not modify the o
 )
 from itertools import chain  # used to desnest list
 
-import matplotlib as mpl
+# import matplotlib as mpl
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import numpy as np
@@ -34,9 +34,9 @@ from scipy.spatial.transform import Rotation as R  # For the rotation matrices i
 
 import vtk
 
-from pyevtk.hl import (  # https://pypi.org/project/pyevtk/, pip install pyevtk for alvaro works like this
-    gridToVTK,
-)
+# https://pypi.org/project/pyevtk/, pip install pyevtk for alvaro works like this
+from pyevtk.hl import gridToVTK
+
 from tqdm import tqdm  # Progress bars
 
 try:
@@ -1191,12 +1191,14 @@ def zoneDEF(self, degree):
             int
         )  # Fills all the holes in zone_id
         # plot the ZONE
-        cmap = plt.get_cmap("jet", 1064)
+        # TODO dvp: is it used?
+        # cmap = plt.get_cmap("jet", 1064)
         # tell imshow about color map so that only set colors are used
-        img = mpl.pyplot.imshow(zone_id, cmap=cmap, norm=colors.Normalize(0, 1))
+        # TODO dvp: is it used?
+        # img = plt.imshow(zone_id, cmap=cmap, norm=colors.Normalize(0, 1))
         factor = sum(sum(zone_id)) / (int(len(self.Y) - 1) * int(len(self.X) - 1))
         print(" zone_id automatically generated!")
-    else:  # The ww is partialy contained in the model domain
+    else:  # The ww is partially contained in the model domain
         # PR - Evaluation of the WW
         zone_id = []
         zone_id = np.zeros((int(len(self.Y) - 1), int(len(self.X) - 1)))
@@ -1209,12 +1211,15 @@ def zoneDEF(self, degree):
                     zone_id[j, i] = 1
 
         # plot the ZONE
-        cmap = plt.get_cmap("jet", 1064)
+        # TODO dvp: looks like this is not used
+        # cmap = plt.get_cmap("jet", 1064)
 
         # tell imshow about color map so that only set colors are used
-        img = mpl.pyplot.imshow(zone_id, cmap=cmap, norm=colors.Normalize(0, 1))
+        # TODO dvp: looks like this is not used
+        # img = plt.imshow(zone_id, cmap=cmap, norm=colors.Normalize(0, 1))
 
-        # problem here -->> mpl.pyplot.show(block = False)
+        # problem here -->> plt.show(block = False)
+        # ------------  - TODO dvp
 
         # Factor which evaluates the simulation domain
         factor = sum(sum(zone_id)) / (int(len(self.Y)) * int(len(self.X)))
@@ -1400,14 +1405,14 @@ def plot_ww(self, PAR_Select, PLANE, PLANE_QUOTE, ENERGY):
                     vmax = np.max(f[np.nonzero(f)])
                     nColors = len(str(int(vmax / vmin))) * 2
                     if vmin > 0:
-                        cax = mpl.pyplot.imshow(
+                        cax = plt.imshow(
                             vals,
                             cmap=plt.get_cmap("jet", nColors),
                             norm=colors.LogNorm(vmin, vmax),
                             extent=extent,
                         )
                     else:
-                        cax = mpl.pyplot.imshow(
+                        cax = plt.imshow(
                             vals,
                             cmap=plt.get_cmap("jet", nColors),
                             vmin=vmin,
@@ -1452,7 +1457,7 @@ def plot_ww(self, PAR_Select, PLANE, PLANE_QUOTE, ENERGY):
                             + "MeV"
                             + ".jpg"
                         )
-                        # problem here -->mpl.pyplot.show(block = False)
+                        # problem here -->plt.show(block = False)
                     print(" Plot...Done!\n")
 
 
@@ -1560,15 +1565,15 @@ def gvr_soft(gvrname):
 
         ww_inp = np.zeros(np.shape(gvr.wwme[0][0]))
         fluxinp_max = np.max(gvr.wwme[0][0])
-        bar = tqdm(unit=" Z slices", desc=" GVR", total=len(gvr.Z) - 1)
-        for k in range(0, len(gvr.Z) - 1):
-            for j in range(0, len(gvr.Y) - 1):
-                for i in range(0, len(gvr.X) - 1):
-                    ww_inp[k, j, i] = np.power(
-                        gvr.wwme[0][0][k, j, i] / fluxinp_max * (2 / (beta + 1)), soft
-                    )  # Van Vick/A.Davis
-            bar.update()
-        bar.close()
+        with tqdm(unit=" Z slices", desc=" GVR", total=len(gvr.Z) - 1) as bar:
+            for k in range(0, len(gvr.Z) - 1):
+                for j in range(0, len(gvr.Y) - 1):
+                    for i in range(0, len(gvr.X) - 1):
+                        ww_inp[k, j, i] = np.power(
+                            gvr.wwme[0][0][k, j, i] / fluxinp_max * (2 / (beta + 1)),
+                            soft,
+                        )  # Van Vick/A.Davis
+                bar.update()
 
         if (
             len(zoneID) > 0
@@ -1622,15 +1627,15 @@ def gvr_soft(gvrname):
 
         ww_inp = np.zeros(np.shape(gvr.wwme[0][0]))
         fluxinp_max = np.max(gvr.wwme[0][0])
-        bar = tqdm(unit=" K slices", desc=" GVR", total=len(gvr.K) - 1)
-        for k in range(0, len(gvr.K) - 1):
-            for j in range(0, len(gvr.J) - 1):
-                for i in range(0, len(gvr.I) - 1):
-                    ww_inp[k, j, i] = np.power(
-                        gvr.wwme[0][0][k, j, i] / fluxinp_max * (2 / (beta + 1)), soft
-                    )  # Van Vick/A.Davis
-            bar.update()
-        bar.close()
+        with tqdm(unit=" K slices", desc=" GVR", total=len(gvr.K) - 1) as bar:
+            for k in range(0, len(gvr.K) - 1):
+                for j in range(0, len(gvr.J) - 1):
+                    for i in range(0, len(gvr.I) - 1):
+                        ww_inp[k, j, i] = np.power(
+                            gvr.wwme[0][0][k, j, i] / fluxinp_max * (2 / (beta + 1)),
+                            soft,
+                        )  # Van Vick/A.Davis
+                bar.update()
 
         gvr.wwme[0][0] = ww_inp
         if degree == "Yes":  # Hole filling
