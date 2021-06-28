@@ -1,5 +1,6 @@
-build/
-testing/
+.*
 .eggs/
 .idea/
-wrk/
+build/
+htmlcov/
+iww_gvr.egg-info/

@@ -1,3 +1,0 @@
-[console_scripts]
-iww_gvr = iww_gvr.main:main
-
