@@ -119,7 +119,7 @@ class Meshtal:
         self.probid = vals[-2] + " " + vals[-1]
         self.title = self.f.readline().strip()
         self.nps = int(
-            float((self.f.readline().split()[-1]))
+            float((self.f.readline().split("=")[-1]))  # dvp: sometimes there's no space between '=' and nps
         )  # nps: int doesnt like decimals
         return
 
@@ -466,20 +466,35 @@ class Fmesh:
             n = np.prod(rshape)
             xdat = np.zeros(n, self.dtype)
             xerr = np.zeros(n, self.dtype)
-            colDat = 31
-            colErr = 43
-            if energyCol:  # first column is energy
-                colDat += 10
-                colErr += 10
+            #
+            # dvp: merge_meshtal_one splits line by spaces and doesn't uses column values,
+            #      these column values don't allow to use higher precision on bin presentation,
+            #      which is necessary for GVR cylinder meshes.
+            #
+            # From merge_meshtal_one
+            # iFile >> temp >> temp >> temp;
+            # iFile >> this->results[e][r][z][theta]
+            #       >> this->relativeError[e][r][z][theta];
+
+            #
+            # colDat = 31
+            # colErr = 43
+            # if energyCol:  # first column is energy
+            #     colDat += 10
+            #     colErr += 10
             for ie in range(self.ldims[0]):  # energy
                 for ix in range(n):
-                    line = f.readline()
-                    try:
-                        xdat[ix] = dfloat(line[colDat : colDat + 12])
-                        xerr[ix] = line[colErr : colErr + 12]
-                    except:
-                        xdat[ix] = dfloat(line[colDat + 1 : colDat + 13])
-                        xerr[ix] = line[colErr + 1 : colErr + 13]
+                    # line = f.readline()
+                    # try:
+                    #     xdat[ix] = dfloat(line[colDat : colDat + 12])
+                    #     xerr[ix] = line[colErr : colErr + 12]
+                    # except:
+                    #     xdat[ix] = dfloat(line[colDat + 1 : colDat + 13])
+                    #     xerr[ix] = line[colErr + 1 : colErr + 13]
+                    #
+                    # changed to:
+                    # get the last two items from a line as value and error
+                    xdat[ix], xerr[ix] = map(dfloat, f.readline().split()[-2:])
                 self.dat[ie, :, :, :] = np.transpose(xdat.reshape(rshape), itrn)
                 self.err[ie, :, :, :] = np.transpose(xerr.reshape(rshape), itrn)
 
