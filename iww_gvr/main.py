@@ -12,7 +12,7 @@
 ########################################################################################################
 """
 
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Tuple, Union
 
 import math
 import os
@@ -1461,7 +1461,7 @@ def plot_ww(self, PAR_Select, PLANE, PLANE_QUOTE, ENERGY):
                     print(" Plot...Done!\n")
 
 
-def gvr_soft(gvrname):
+def gvr_soft(gvrname: str) -> Union[ww_item, "ww_item_cyl"]:
     """
     Creates a weight window file starting from the datafile imported and using the Global Variance Reduction.
 
