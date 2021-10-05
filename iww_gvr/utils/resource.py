@@ -1,16 +1,10 @@
-from typing import Callable
-
-import inspect
-
 from pathlib import Path
+from typing import Callable
 
 import pkg_resources as pkg
 
 
-def filename_resolver(package: str = None) -> Callable[[str], str]:
-    if package is None:
-        module = inspect.getmodule(inspect.stack()[1][0])
-        package = module.__name__
+def filename_resolver(package: str) -> Callable[[str], str]:
 
     resource_manager = pkg.ResourceManager()
 
@@ -22,16 +16,13 @@ def filename_resolver(package: str = None) -> Callable[[str], str]:
     return func
 
 
-def path_resolver(package: str = None) -> Callable[[str], Path]:
+def path_resolver(package: str) -> Callable[[str], Path]:
 
     resolver = filename_resolver(package)
 
     def func(resource):
         filename = resolver(resource)
         return Path(filename)
-
-    if package is None:
-        package = "caller package"
 
     func.__doc__ = f"Computes Path for resources located in {package}"
 
