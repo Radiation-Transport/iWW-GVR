@@ -20,6 +20,31 @@ import sys
 
 import numpy as np
 
+WATER = """
+         1001.31c 6.32384E-004
+         1002.31c 7.27325E-008
+         8016.31c 3.15460E-004
+         8017.31c 1.20167E-007
+         8018.31c 6.48268E-007
+""".rstrip()
+
+CONTROLS = """
+rand gen=2 seed=12653953025 stride=152917 hist=1
+ctme  2
+nps 1e+12
+prdmp -90 -90  1 1 1e6
+lost 10000 10000
+mode n p
+phys:n  20 1e-08  0
+phys:p  20  4j
+cut:n   j  1e-11 -0.5  -0.25  j
+cut:p   j  1e-3  -0.5  -0.25  j
+print
+"""[
+    1:-1
+]
+
+
 """
 c Generate weight window options:
 wwg     4 0 0.4 4j 0
@@ -58,11 +83,11 @@ wwge:p  1e-2 0.1 1 10 20
 
 def create_cube_with_source_at_corner(
     *,
-    edge_size: float = 100.0,
-    cell_bins: int = 10,
-    ww_bins: int = 10,
-    mt_bins: int = 10,
-    material: str = "H",
+    cell_size: float = 5.0,
+    cell_bins: int = 4,
+    ww_bins: int = 4,
+    mt_bins: int = 4,
+    material: str = WATER,
     density: float = 0.0,
     stream: TextIO = sys.stdout,
 ) -> None:
@@ -70,13 +95,15 @@ def create_cube_with_source_at_corner(
     Create a simple MCNP model with the neutron source in the corner and the target tally in the center.
     """
     print(f"test model: cube with source at corner", file=stream)
-    print(f"c edge_size={edge_size}", file=stream)
-    print(f"c cell_bins={cell_bins}", file=stream)
-    print(f"c density={density}", file=stream)
+    print("c\nc   Parameters:\nc")
+    print(f"c    cell_size={cell_size}", file=stream)
+    print(f"c    cell_bins={cell_bins}", file=stream)
+    print(f"c    density={density}", file=stream)
+    print("c")
     cells_numbers = np.arange(1, cell_bins ** 3 + 1, dtype=np.int32).reshape(
         (cell_bins, cell_bins, cell_bins)
     )
-
+    edge_size = cell_bins * cell_size
     half_edge = 0.5 * edge_size
     cell_bins_coords = np.linspace(-half_edge, half_edge, cell_bins + 1)
     surface_numbers = np.arange(1, cell_bins_coords.size * 3 + 1).reshape(
@@ -109,10 +136,21 @@ def create_cube_with_source_at_corner(
 
     print(file=stream)
     print("c", "-" * 30, "  Control", file=stream)
+    print("m1", material)
+    print("sdef cel=1 par=1 x=d1 y=d1 z=d1")
+    print(f"si1 H {cell_bins_coords[0]} {cell_bins_coords[1]}")
+    print("sp1 D 0.0 1.0")
+    print("fc4 --- Tally at the cube center")
+    center_cell_index = cell_bins // 2
+    center_cell = cells_numbers[center_cell_index, center_cell_index, center_cell_index]
+    print(f"f4:n {center_cell}")
+    print(CONTROLS)
 
 
 def main():
-    create_cube_with_source_at_corner(cell_bins=4, density=-1.0)
+    create_cube_with_source_at_corner(
+        cell_size=10.0, cell_bins=3, density=-1.0, material=WATER
+    )
 
 
 if __name__ == "__main__":
