@@ -6,6 +6,9 @@ authors = ["Marco Fabbri", "Alvaro Cubi"]
 description="Weight window Manipulator & Global Variance Reduction Tool"
 # url="git@github.com:Radiation-Transport/iWW-GVR.git"
 
+[tool.poetry.scripts]
+iww_gvr = "iww_gvr.main:main"
+
 [tool.poetry.dependencies]
 python = ">=3.8,<3.10"  # TODO dvp: scipy-1.7.1 doesn't support python 3.10, check this on scipy update
 pyevtk = "^1.4.1"
