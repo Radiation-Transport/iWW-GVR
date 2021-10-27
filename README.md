@@ -35,7 +35,7 @@ programs. Inside a new Python script the user may write:
 Now the user has access to the main functionality of the tool. The WW class has many 
 interesting public methods and attributes, writing help(WW) will provide information on them.
 
-## LICENSE
+# LICENSE
 Copyright 2019 F4E | European Joint Undertaking for ITER and the Development of Fusion 
 Energy (‘Fusion for Energy’). Licensed under the EUPL, Version 1.2 or - as soon they will
 be approved by the European Commission - subsequent versions of the EUPL (the “Licence”).
