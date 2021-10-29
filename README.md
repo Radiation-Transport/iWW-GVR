@@ -1,6 +1,6 @@
 # iWW-GVR: A tool to manipulate MCNP weight window (WW) and to generate Global Variance Reduction (GVR) parameters
 
-![Python Logo](tests/WWpic.png "Sample inline image")
+![Python Logo](docs/img/WWpic.png "Sample inline image")
 
 The tool is a Python 3.7 based package that can load, manipulate and write MCNP weight-windows
 as well as generate GVR files from meshtally files. The tool can also export the WWs or GVRs
