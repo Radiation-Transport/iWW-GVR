@@ -11,6 +11,11 @@ from io import open
 import numpy as np
 import vtk
 
+try:
+    from vtkmodules.util import numpy_support
+except ImportError:
+    from vtk.util import numpy_support    # noqa
+
 
 # convert character to float
 # able to convert no standard fortran exponent type 1.234-123 
@@ -90,13 +95,15 @@ class Meshtal:
             m.readSRCTYPE(self.f)
 
   def __readHeadMCNP__(self):
-    vals = self.f.readline().split()
-    self.code    = vals[0]
-    self.version = vals[2]
-    self.probid  = vals[-2] + ' ' + vals[-1]
-    self.title   = self.f.readline().strip()
-    self.nps     = int(float((self.f.readline().split()[-1])))  # nps: int doesnt like decimals
-    return
+        vals = self.f.readline().split()
+        self.code = vals[0]
+        self.version = vals[2]
+        self.probid = vals[-2] + " " + vals[-1]
+        self.title = self.f.readline().strip()
+        self.nps = int(
+            float((self.f.readline().split("=")[-1]))  # dvp: sometimes there's no space between '=' and nps
+        )  # nps: int doesnt like decimals
+        return
 
   def writeVTK(self,ofn):
     mb = vtk.vtkMultiBlockDataSet()
@@ -420,20 +427,35 @@ class Fmesh:
       n    = np.prod(rshape)
       xdat = np.zeros(n,self.dtype)
       xerr = np.zeros(n,self.dtype)
-      colDat=31
-      colErr=43
-      if energyCol:  # first column is energy
-        colDat += 10
-        colErr += 10
+            #
+            # dvp: merge_meshtal_one splits line by spaces and doesn't uses column values,
+            #      these column values don't allow to use higher precision on bin presentation,
+            #      which is necessary for GVR cylinder meshes.
+            #
+            # From merge_meshtal_one
+            # iFile >> temp >> temp >> temp;
+            # iFile >> this->results[e][r][z][theta]
+            #       >> this->relativeError[e][r][z][theta];
+
+            #
+            # colDat = 31
+            # colErr = 43
+            # if energyCol:  # first column is energy
+            #     colDat += 10
+            #     colErr += 10
       for ie in range(self.ldims[0]):  # energy
         for ix in range(n):
-          line = f.readline()
-          try:
-            xdat[ix] = dfloat(line[colDat:colDat+12])
-            xerr[ix] = line[colErr:colErr+12]
-          except:
-            xdat[ix] = dfloat(line[colDat+1:colDat+13])
-            xerr[ix] = line[colErr+1:colErr+13]
+                    # line = f.readline()
+                    # try:
+                    #     xdat[ix] = dfloat(line[colDat : colDat + 12])
+                    #     xerr[ix] = line[colErr : colErr + 12]
+                    # except:
+                    #     xdat[ix] = dfloat(line[colDat + 1 : colDat + 13])
+                    #     xerr[ix] = line[colErr + 1 : colErr + 13]
+                    #
+                    # changed to:
+                    # get the last two items from a line as value and error
+                    xdat[ix], xerr[ix] = map(dfloat, f.readline().split()[-2:])
         self.dat[ie,:,:,:] = np.transpose( xdat.reshape(rshape), itrn )
         self.err[ie,:,:,:] = np.transpose( xerr.reshape(rshape), itrn )
 
@@ -910,7 +932,6 @@ class Fmesh:
 
 # This should be the same as above
 def makeVTKarray(nArr,aName,sc=1.):
-  from vtk.util import numpy_support
   if sc==1.:
     vArr = numpy_support.numpy_to_vtk(nArr.ravel(),deep=1)
   else:

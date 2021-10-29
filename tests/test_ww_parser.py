@@ -6,6 +6,9 @@ import os
 import unittest
 
 from iww_gvr.ww_parser import read_ww, write_ww
+from iww_gvr.utils.resource import filename_resolver
+
+find_data_file = filename_resolver("tests")
 
 
 class TestParser(unittest.TestCase):
@@ -28,7 +31,7 @@ class TestParser(unittest.TestCase):
                          'b2_vector_k': [-15.0, 1.0, 20.0, 1.0],
                          'energies': [[100.0]],
                          'values': [[0.11576, 0.093197, 0.67316, 0.5, 0.099821, 0.0898]]}
-        actual_dict = read_ww('ww_simple_cart')
+        actual_dict = read_ww(find_data_file('data/ww_simple_cart'))
         self.assertDictEqual(expected_dict, actual_dict)
 
     def test_parse_simple_cyl(self):
@@ -52,7 +55,7 @@ class TestParser(unittest.TestCase):
                          'values': [[0.5, 0.10463, 0.52965, 0.084479, 0.14258, 0.03275]],
                          'director_1': [0.0, 0.0, 11.0],
                          'director_2': [15.0, 0.0, -5.0]}
-        actual_dict = read_ww('ww_simple_cyl')
+        actual_dict = read_ww(find_data_file('data/ww_simple_cyl'))
         self.assertDictEqual(expected_dict, actual_dict)
 
     def test_parse_complex_cart(self):
@@ -92,7 +95,7 @@ class TestParser(unittest.TestCase):
                                     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]}
-        actual_dict = read_ww('ww_complex_cart')
+        actual_dict = read_ww(find_data_file('data/ww_complex_cart'))
         self.assertDictEqual(expected_dict, actual_dict)
 
     def test_write_simple_cart(self):
