@@ -1,1 +1,1 @@
-from .__version__ import __version__ as version
+from iww_gvr.weight_window import WW
