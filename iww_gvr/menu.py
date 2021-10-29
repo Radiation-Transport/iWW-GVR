@@ -202,6 +202,7 @@ class Menu:
             return self.go_operate_menu("No WWs loaded...")
         idx = self.select_ww_index()
         ww = deepcopy(self.ww_list[idx])
+        self.ww_list.append(ww)
         ww.filename = input('Write name of the new WW: ')
         try:
             norm = float(input('Enter normalization factor: '))
