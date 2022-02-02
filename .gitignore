@@ -1,6 +1,6 @@
 .*
-.eggs/
-.idea/
 build/
+dist/
+*.egg-info
+wrk/
 htmlcov/
-iww_gvr.egg-info/

@@ -1,0 +1,15 @@
+#
+# Special handling for binary files
+# See https://git-scm.com/book/tr/v2/Customizing-Git-Git-Attributes
+# Install doc2txt https://sourceforge.net/projects/docx2txt/?source=navbar
+#
+*.xz binary
+*.zip binary
+*.bz2 binary
+*.gz binary
+*.zip binary
+*.npy binary
+*.docx binary
+*.png binary
+*.dll binary
+*.pyd binary
