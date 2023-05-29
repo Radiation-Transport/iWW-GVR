@@ -342,7 +342,7 @@ class WW:
         for particle in self.particles:
             for energy in self.energies[particle]:
                 array_name = f'{particle}_{energy:.3e}MeV'
-                cell_data[array_name] = self.values[particle][energy]
+                cell_data[array_name] = np.swapaxes(self.values[particle][energy], 0, 2)
 
         # If the ratios are calculated add them to the data arrays
         if self.ratios is not None:
