@@ -71,7 +71,7 @@ class WW:
 
     Methods
     -------
-    read_from_ww(filename)
+    read_from_ww_file(filename)
     read_from_meshtally_file(filename, tally_id, maximum_splitting_ratio=5.)
     write_ww_file(filename)
     export_to_vtk(filename)
