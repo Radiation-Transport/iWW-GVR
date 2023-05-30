@@ -4,3 +4,4 @@ dist/
 *.egg-info
 wrk/
 htmlcov/
+__pycache__
