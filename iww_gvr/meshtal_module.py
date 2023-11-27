@@ -344,7 +344,6 @@ class Fmesh:
     if self.cart:
       for i in range(1,4):
         self.origin[i] = self.dims[i][0]
-        self.dims[i]  -= self.origin[i]
     # Memory storage for cell data
     # Reversed indeces to keep ordering in memory
     rshape = self.ldims[:]

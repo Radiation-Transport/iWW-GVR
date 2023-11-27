@@ -5,7 +5,7 @@ The MCNP WW writer is inconsistent, for some reason sometimes write WW values as
 import os
 import unittest
 
-from iww_gvr.ww_parser import read_ww, write_ww
+from iww_gvr.ww_parser import read_ww, write_ww, read_meshtally, load_meshtally_file
 from iww_gvr.utils.resource import filename_resolver
 
 find_data_file = filename_resolver("tests")
@@ -96,6 +96,32 @@ class TestParser(unittest.TestCase):
                                      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]}
         actual_dict = read_ww(find_data_file('data/ww_complex_cart'))
+        self.assertDictEqual(expected_dict, actual_dict)
+
+    def test_parse_meshtally_cart(self):
+        expected_dict = {'if_': 1,
+                         'iv': 1,
+                         'ni': 1,
+                         'nr': 10,
+                         'probid': '05/29/23 17:07:28',
+                         'ne': [1],
+                         'nfx': 4.0,
+                         'nfy': 5.0,
+                         'nfz': 3.0,
+                         'origin': [-10., 20., 15.],
+                         'ncx': 4.0,
+                         'ncy': 5.0,
+                         'ncz': 3.0,
+                         'b2_vector_i': [-10.0, 1, 0.0, 1.0, 1, 10.0, 1.0, 1, 20.0, 1],
+                         'b2_vector_j': [20.0, 1, 25.0, 1.0, 1, 30.0, 1.0, 1, 35.0, 1.0, 1, 40.0, 1],
+                         'b2_vector_k': [15.0, 1, 20.0, 1.0, 1, 25.0, 1],
+                         'energies': [[100.0]],
+                         'values': [[9.45568E-05, 9.54871E-05, 7.67912E-05, 7.31554E-05, 7.30042E-05, 6.20899E-05,
+                                     5.71612E-05, 5.69892E-05, 5.00181E-05, 4.53375E-05, 4.50316E-05, 4.08733E-05,
+                                     7.70699E-05, 7.64715E-05, 6.40383E-05, 6.16851E-05, 6.22624E-05, 5.33923E-05,
+                                     5.00923E-05, 5.02796E-05, 4.46194E-05, 4.10111E-05, 4.10669E-05, 3.71414E-05]]}
+        mesh_file = load_meshtally_file(find_data_file('data/meshtally_cart'))
+        actual_dict = read_meshtally(mesh_file, 4)
         self.assertDictEqual(expected_dict, actual_dict)
 
     def test_write_simple_cart(self):

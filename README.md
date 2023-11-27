@@ -30,7 +30,7 @@ values, mitigating the long history particle problem, exporting the WW to a VTK 
 This tool is built as a package that the user can import in her own Python scripts or 
 programs. Inside a new Python script the user may write:
 > from iww_gvr import WW\
-> my_ww = WW.read_from_ww('path/to/ww_filename')
+> my_ww = WW.read_from_ww_file('path/to/ww_filename')
 
 Now the user has access to the main functionality of the tool. The WW class has many 
 interesting public methods and attributes, writing help(WW) will provide information on them.

@@ -239,14 +239,14 @@ def read_meshtally(mesh_file: Meshtal, tally_id: int) -> Dict:
     nfx = len(mesh.dims[3])
     nfy = len(mesh.dims[2])
     nfz = len(mesh.dims[1])
-    origin = np.array([mesh.origin[3], mesh.origin[2], mesh.origin[1]])
+    origin = [mesh.origin[3], mesh.origin[2], mesh.origin[1]]
     ncx = len(mesh.dims[3])
     ncy = len(mesh.dims[2])
     ncz = len(mesh.dims[1])
     b2_vector_i = compose_b2_vector(mesh.dims[3], [1 for _ in range(len(mesh.dims[3]) - 1)])
     b2_vector_j = compose_b2_vector(mesh.dims[2], [1 for _ in range(len(mesh.dims[2]) - 1)])
     b2_vector_k = compose_b2_vector(mesh.dims[1], [1 for _ in range(len(mesh.dims[1]) - 1)])
-    values = [mesh.dat.flatten()]
+    values = [list(mesh.dat.flatten())]
 
     data = {'if_': 1,  # File type. Always 1, unused.
             'iv': 1,  # Time-dependent windows flag. 1/2 = no/yes

@@ -71,7 +71,7 @@ class WW:
 
     Methods
     -------
-    read_from_ww(filename)
+    read_from_ww_file(filename)
     read_from_meshtally_file(filename, tally_id, maximum_splitting_ratio=5.)
     write_ww_file(filename)
     export_to_vtk(filename)
@@ -342,7 +342,7 @@ class WW:
         for particle in self.particles:
             for energy in self.energies[particle]:
                 array_name = f'{particle}_{energy:.3e}MeV'
-                cell_data[array_name] = self.values[particle][energy]
+                cell_data[array_name] = np.swapaxes(self.values[particle][energy], 0, 2)
 
         # If the ratios are calculated add them to the data arrays
         if self.ratios is not None:
