@@ -1,3 +1,7 @@
+# Important warning:
+This module has been updated and integrated into [F4Enix](https://github.com/Radiation-Transport/F4Enix/tree/main) as a submodule. Please check F4Enix and its documentation. The submodule is found under f4enix.input.ww_gvr.
+All future developments will be done at the F4Enix project. This iWW_GVR page will no longer be maintained.
+
 # iWW-GVR: A tool to manipulate MCNP weight window (WW) and to generate Global Variance Reduction (GVR) parameters
 
 ![Python Logo](docs/img/WWpic.png "Sample inline image")
